@@ -4,7 +4,6 @@
 //
 //  Created by Mateusz Kosikowski on 24/06/2025.
 //
-
 import Foundation
 import ShaderEnumGeneratorCore
 
@@ -33,12 +32,13 @@ guard !options.inputFiles.isEmpty, let outputPath = options.outputFile else {
     exit(1)
 }
 
-var functionsByType: [ShaderType: Set<String>] = [:]
+var functionsByType: [ShaderGroup: Set<String>] = [:]
 for path in options.inputFiles {
     guard let content = try? String(contentsOfFile: path) else { continue }
     let functions = parseShaderFunctions(from: content)
     for (type, name) in functions where !name.isEmpty {
-        functionsByType[type, default: []].insert(name)
+        let group = ShaderGroup.from(raw: type)
+        functionsByType[group, default: []].insert(name)
     }
 }
 
