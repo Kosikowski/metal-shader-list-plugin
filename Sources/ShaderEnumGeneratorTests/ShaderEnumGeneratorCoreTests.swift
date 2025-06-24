@@ -20,11 +20,11 @@ struct ShaderEnumGeneratorCoreTests {
         """
         let functions = parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
-        #expect(functions.contains(where: { $0.0 == .vertex && $0.1 == "vertex_passthrough" }))
-        #expect(functions.contains(where: { $0.0 == .fragment && $0.1 == "fragment_main" }))
-        #expect(functions.contains(where: { $0.0 == .kernel && $0.1 == "kernel_func" }))
-        var grouped: [ShaderType: Set<String>] = [:]
-        for (type, name) in functions { grouped[type, default: []].insert(name) }
+        #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_passthrough" }))
+        #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_main" }))
+        #expect(functions.contains(where: { $0.0 == "kernel" && $0.1 == "kernel_func" }))
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
         #expect(code.contains("case vertex_passthrough = \"vertex_passthrough\""))
@@ -38,8 +38,8 @@ struct ShaderEnumGeneratorCoreTests {
     func testNoShaders() async throws {
         let metalSource = "// No shader functions"
         let functions = parseShaderFunctions(from: metalSource)
-        var grouped: [ShaderType: Set<String>] = [:]
-        for (type, name) in functions { grouped[type, default: []].insert(name) }
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.starts(with: "// No shaders found."))
     }
@@ -53,10 +53,11 @@ struct ShaderEnumGeneratorCoreTests {
         compute\n   void\n   compute_mixed ( ) { }
         """
         let functions = parseShaderFunctions(from: metalSource)
-        #expect(functions.contains(where: { $0.0 == .vertex && $0.1 == "vertex_newline" }))
-        #expect(functions.contains(where: { $0.0 == .fragment && $0.1 == "fragment_tabbed" }))
-        #expect(functions.contains(where: { $0.0 == .kernel && $0.1 == "kernel_spaced" }))
-        #expect(functions.contains(where: { $0.0 == .compute && $0.1 == "compute_mixed" }))
+        #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_newline" }))
+        #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_tabbed" }))
+        #expect(functions.contains(where: { $0.0 == "kernel" && $0.1 == "kernel_spaced" }))
+        #expect(functions.contains(where: { $0.0 == "compute" && $0.1 == "compute_mixed" }))
+        
         #expect(functions.count == 4)
     }
 
@@ -67,7 +68,27 @@ struct ShaderEnumGeneratorCoreTests {
         """
         let functions = parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
-        #expect(functions[0].0 == .kernel)
+        #expect(functions[0].0 == "kernel")
         #expect(functions[0].1 == "spaced_func")
     }
+    
+    @Test("Parses custom group comment and generates correct enum")
+    func testCustomGroupComment() async throws {
+        let metalSource = """
+        //MTLShaderType: FancyShaderGroup
+        kernel void customFunc() { }
+        //MTLShaderType: Another
+        fragment float4 otherFunc() { return float4(1); }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        let code = generateShaderEnums(functionsByType: grouped)
+        #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
+        #expect(code.contains("case customFunc = \"customFunc\""))
+        #expect(code.contains("public enum Another: String, CaseIterable"))
+        #expect(code.contains("case otherFunc = \"otherFunc\""))
+    }
 }
+
