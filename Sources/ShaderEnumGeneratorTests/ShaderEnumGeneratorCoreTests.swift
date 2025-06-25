@@ -75,9 +75,9 @@ struct ShaderEnumGeneratorCoreTests {
     @Test("Parses custom group comment and generates correct enum")
     func testCustomGroupComment() async throws {
         let metalSource = """
-        //MTLShaderType: FancyShaderGroup
+        //MTLShaderGroup: FancyShaderGroup
         kernel void customFunc() { }
-        //MTLShaderType: Another
+        //MTLShaderGroup: Another
         fragment float4 otherFunc() { return float4(1); }
         """
         let functions = parseShaderFunctions(from: metalSource)
@@ -89,6 +89,25 @@ struct ShaderEnumGeneratorCoreTests {
         #expect(code.contains("case customFunc = \"customFunc\""))
         #expect(code.contains("public enum Another: String, CaseIterable"))
         #expect(code.contains("case otherFunc = \"otherFunc\""))
+    }
+    
+    @Test("Parses custom group comment and generates correct enum")
+    func testCustomGroupCommentWithWhitespaces() async throws {
+        let metalSource = """
+        //MTLShaderGroup: FancyShaderGroup
+        vertex\n    float4\n    vertex_newline(float4 in [[stage_in]]) { return in; }
+        //MTLShaderGroup: Another
+        fragment\tfloat4\tfragment_tabbed ( ) { return float4(1); }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        let code = generateShaderEnums(functionsByType: grouped)
+        #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
+        #expect(code.contains("case vertex_newline = \"vertex_newline\""))
+        #expect(code.contains("public enum Another: String, CaseIterable"))
+        #expect(code.contains("case fragment_tabbed = \"fragment_tabbed\""))
     }
 }
 
