@@ -63,13 +63,13 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 
 /// Parses Metal shader source code for top-level function declarations and groups them by shader type or custom group comments in source.
 /// The parser scans the entire input at once, supporting multi-line function signatures via dotMatchesLineSeparators option.
-/// Custom groups are assigned based on the nearest preceding comment of form `//MTLShaderType: GroupName` (if any),
+/// Custom groups are assigned based on the nearest preceding comment of form `//MTLShaderGroup: GroupName` (if any),
 /// otherwise the function type (vertex|fragment|kernel|compute) is used as the group.
 /// Returns array of tuples: (group name string, function name string).
 public func parseShaderFunctions(from text: String) -> [(String, String)] {
     var results: [(String, String)] = []
     let functionPattern = #"\b(vertex|fragment|kernel|compute)\s+\w+\s+(\w+)\s*\("#
-    let commentPattern = #"//MTLShaderType:\s*([A-Za-z_][A-Za-z0-9_]*)"#
+    let commentPattern = #"//MTLShaderGroup:\s*([A-Za-z_][A-Za-z0-9_]*)"#
     
     guard let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
           let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: []) else {
