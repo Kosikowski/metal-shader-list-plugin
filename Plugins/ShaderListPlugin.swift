@@ -4,44 +4,70 @@ import Foundation
 
 @main
 struct ShaderEnumsPlugin: BuildToolPlugin {
+    
+    private static func makeGenerateCommand(
+        outputDir: Path,
+        tempOutputFile: Path,
+        inputPaths: [Path],
+        diagnosticsTargetName: String,
+        executable: Path,
+        contextToolType: String
+    ) throws -> Command? {
+        do {
+            try FileManager.default.createDirectory(atPath: outputDir.string, withIntermediateDirectories: true)
+            Diagnostics.remark("[\(contextToolType)] Created output directory: \(outputDir.string)")
+        } catch {
+            Diagnostics.error("[\(contextToolType)] Failed to create temporary output directory \(outputDir.string): \(error)")
+            throw error
+        }
+        
+        Diagnostics.remark("[\(contextToolType)] Output file path: \(tempOutputFile)")
+        Diagnostics.remark("[\(contextToolType)] Collected .metal files: \(inputPaths.map { $0.string })")
+        
+        if inputPaths.isEmpty {
+            Diagnostics.warning("[\(contextToolType)] No .metal files found in target \(diagnosticsTargetName)")
+            return nil
+        }
+        
+        Diagnostics.remark("[\(contextToolType)] Generate command arguments: \(inputPaths.map { $0.string } + ["-o", tempOutputFile.string])")
+        
+        let command = Command.buildCommand(
+            displayName: "Generating Shader Enums for \(diagnosticsTargetName)",
+            executable: executable,
+            arguments: inputPaths.map { $0.string } + ["-o", tempOutputFile.string],
+            inputFiles: inputPaths,
+            outputFiles: [tempOutputFile]
+        )
+        
+        return command
+    }
+
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         guard let target = target as? SourceModuleTarget else {
             Diagnostics.error("Target \(target.name) is not a source module")
             return []
         }
-
-        // Use pluginWorkDirectory for temporary generation
+        
         let outputDir = context.pluginWorkDirectory.appending("Generated")
+        let tempOutputFile = outputDir.appending("\(target.name)ShaderEnums.generated.swift")
+        let inputPaths = target.sourceFiles(withSuffix: ".metal").map { $0.path }
+        
         do {
-            try FileManager.default.createDirectory(atPath: outputDir.string, withIntermediateDirectories: true)
-            Diagnostics.remark("Created output directory: \(outputDir.string)")
+            if let generateCommand = try Self.makeGenerateCommand(
+                outputDir: outputDir,
+                tempOutputFile: tempOutputFile,
+                inputPaths: inputPaths,
+                diagnosticsTargetName: target.name,
+                executable: try context.tool(named: "ShaderEnumGenerator").path,
+                contextToolType: "swiftpm"
+            ) {
+                return [generateCommand]
+            }
         } catch {
-            Diagnostics.error("Failed to create temporary output directory \(outputDir.string): \(error)")
             throw error
         }
-
-        let tempOutputFile = outputDir.appending("ShaderEnums.generated.swift")
-        Diagnostics.remark("Temporary output file path: \(tempOutputFile)")
-
-        // Collect .metal files
-        let inputPaths = target.sourceFiles(withSuffix: ".metal").map { $0.path }
-        Diagnostics.remark("Collected .metal files: \(inputPaths.map { $0.string })")
-        if inputPaths.isEmpty {
-            Diagnostics.warning("No .metal files found in target \(target.name)")
-            return []
-        }
-
-        Diagnostics.remark("Generate command arguments: \(inputPaths.map { $0.string } + ["-o", tempOutputFile.string])")
-        // Command to generate the file in the temporary directory
-        let generateCommand = Command.buildCommand(
-            displayName: "Generating Shader Enums for \(target.name)",
-            executable: try context.tool(named: "ShaderEnumGenerator").path,
-            arguments: inputPaths.map { $0.string } + ["-o", tempOutputFile.string],
-            inputFiles: inputPaths,
-            outputFiles: [tempOutputFile]
-        )
-  
-        return [generateCommand]
+        
+        return []
     }
 }
 
@@ -50,47 +76,24 @@ import XcodeProjectPlugin
 
 extension ShaderEnumsPlugin: XcodeBuildToolPlugin {
     func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
-        
-        // Use pluginWorkDirectory for temporary generation
         let outputDir = context.pluginWorkDirectory.appending("Generated")
-        do {
-            try FileManager.default.createDirectory(atPath: outputDir.string, withIntermediateDirectories: true)
-            Diagnostics.remark("Created output directory: \(outputDir.string)")
-        } catch {
-            Diagnostics.error("Failed to create temporary output directory \(outputDir.string): \(error)")
-            throw error
-        }
-
-        let tempOutputFile = outputDir.appending("ShaderEnums.generated.swift")
-        Diagnostics.remark("Temporary output file path: \(tempOutputFile)")
-
-        // Collect .metal files
+        let outputFile = outputDir.appending("\(target.displayName)ShaderEnums.generated.swift")
         let inputPaths = target.inputFiles
             .filter { $0.type == .source && $0.path.extension == "metal" }
             .map { $0.path }
-        Diagnostics.remark("Collected .metal files: \(inputPaths.map { $0.string })")
-
-        if inputPaths.isEmpty {
-            Diagnostics.warning("No .metal files found in target \(target.displayName)")
-            return []
+        
+        if let generateCommand = try ShaderEnumsPlugin.makeGenerateCommand(
+                outputDir: outputDir,
+                tempOutputFile: outputFile,
+                inputPaths: inputPaths,
+                diagnosticsTargetName: target.displayName,
+                executable: try context.tool(named: "ShaderEnumGenerator").path,
+                contextToolType: "xcode"
+        ) {
+            return [generateCommand]
         }
-
-        Diagnostics.remark("Generate command arguments: \(inputPaths.map { $0.string } + ["-o", tempOutputFile.string])")
-        // Command to generate the file in the temporary directory
-        let generateCommand = Command.buildCommand(
-            displayName: "Generating Shader Enums for \(target.displayName)",
-            executable: try context.tool(named: "ShaderEnumGenerator").path,
-            arguments: inputPaths.map { $0.string } + ["-o", tempOutputFile.string],
-            inputFiles: inputPaths,
-            outputFiles: [tempOutputFile]
-        )
-        return [generateCommand]
+        
+        return []
     }
 }
 #endif
-
-
-
-
-
-

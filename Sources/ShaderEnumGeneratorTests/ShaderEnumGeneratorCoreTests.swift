@@ -24,7 +24,7 @@ struct ShaderEnumGeneratorCoreTests {
         #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_main" }))
         #expect(functions.contains(where: { $0.0 == "kernel" && $0.1 == "kernel_func" }))
         var grouped: [ShaderGroup: Set<String>] = [:]
-        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
         #expect(code.contains("case vertex_passthrough = \"vertex_passthrough\""))
@@ -39,7 +39,7 @@ struct ShaderEnumGeneratorCoreTests {
         let metalSource = "// No shader functions"
         let functions = parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
-        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.starts(with: "// No shaders found."))
     }
@@ -83,7 +83,7 @@ struct ShaderEnumGeneratorCoreTests {
         let functions = parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
-        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
         #expect(code.contains("case customFunc = \"customFunc\""))
@@ -102,7 +102,7 @@ struct ShaderEnumGeneratorCoreTests {
         let functions = parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
-        for (enumName, name) in functions { grouped[ShaderGroup.from(raw: enumName), default: []].insert(name) }
+        for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped)
         #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
         #expect(code.contains("case vertex_newline = \"vertex_newline\""))
