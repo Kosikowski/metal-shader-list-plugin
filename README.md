@@ -28,9 +28,9 @@ ShaderListPlugin is a Swift Package Plugin that scans your target’s `.metal` s
 )
 ```
 
-### Place your `.metal` files in your target’s sources.
+Place your `.metal` files in your target’s sources.
 
-### Build your package. The plugin generates enums and extensions in `Generated/YourTargetShaderEnums.generated.swift` under the plugin work directory. Use them directly in your code:
+Build your package. The plugin generates enums and extensions in `Generated/YourTargetShaderEnums.generated.swift` under the plugin work directory. Use them directly in your code:
 
 ```swift
 let shader = MyTargetMTLShaders.MTLFragmentShader.yourShaderFunctionNameHereAsEnumForTypeSafety
