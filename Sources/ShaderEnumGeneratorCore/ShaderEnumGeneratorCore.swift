@@ -1,5 +1,5 @@
 //
-//  ShaderEnumGeneratorCoreTests.swift
+//  ShaderEnumGeneratorCore.swift
 //  ShaderListPlugin
 //
 //  Created by Mateusz Kosikowski on 24/06/2025.
@@ -18,10 +18,10 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
         case .fragment: return "MTLFragmentShader"
         case .kernel, .compute: return "MTLComputeShader"
         case .unknown: return "MTLUnknownShader"
-        case .custom(let s): return s
+        case let .custom(s): return s
         }
     }
-    
+
     public var raw: String {
         switch self {
         case .vertex: return "vertex"
@@ -29,10 +29,10 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
         case .kernel: return "kernel"
         case .compute: return "compute"
         case .unknown: return "unknown"
-        case .custom(let s): return s
+        case let .custom(s): return s
         }
     }
-    
+
     public static func from(rawValue: String) -> ShaderGroup {
         switch rawValue.lowercased() {
         case "vertex": return .vertex
@@ -53,25 +53,27 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     var results: [(String, String)] = []
     let functionPattern = #"\b(vertex|fragment|kernel|compute)\s+\w+\s+(\w+)\s*\("#
     let commentPattern = #"//MTLShaderGroup:\s*([A-Za-z_][A-Za-z0-9_]*)"#
-    
+
     guard let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
-          let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: []) else {
+          let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: [])
+    else {
         return results
     }
-    
+
     // Split source text into lines for mapping line numbers
     let lines = text.components(separatedBy: .newlines)
-    
+
     // Collect all comment matches with their line number and group string
     var commentPositions: [(line: Int, group: String)] = []
     for (idx, line) in lines.enumerated() {
-        if let match = commentRegex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..<line.endIndex, in: line)),
-           let groupRange = Range(match.range(at: 1), in: line) {
+        if let match = commentRegex.firstMatch(in: line, options: [], range: NSRange(line.startIndex ..< line.endIndex, in: line)),
+           let groupRange = Range(match.range(at: 1), in: line)
+        {
             let groupStr = String(line[groupRange])
             commentPositions.append((line: idx, group: groupStr))
         }
     }
-    
+
     // Helper: Given a function match's start position, find its line number in text
     func lineNumber(of position: Int, in text: String) -> Int {
         // Count number of newlines before the position
@@ -87,26 +89,27 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
         }
         return count
     }
-    
+
     // Find all function matches in the entire text
-    let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
+    let fullRange = NSRange(text.startIndex ..< text.endIndex, in: text)
     let matches = functionRegex.matches(in: text, options: [], range: fullRange)
-    
+
     for match in matches {
         guard match.numberOfRanges >= 3,
               let typeRange = Range(match.range(at: 1), in: text),
-              let nameRange = Range(match.range(at: 2), in: text) else {
+              let nameRange = Range(match.range(at: 2), in: text)
+        else {
             continue
         }
         let typeStr = String(text[typeRange])
         let funcName = String(text[nameRange])
-        
+
         // Determine line number of function declaration start
         let matchLine = lineNumber(of: match.range.location, in: text)
-        
+
         // Find the closest preceding comment group for this function, if any
         // Binary search or linear search since commentPositions is sorted
-        var assignedGroup: String? = nil
+        var assignedGroup: String?
         for comment in commentPositions.reversed() {
             if comment.line <= matchLine {
                 assignedGroup = comment.group
@@ -116,7 +119,7 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
         let group = assignedGroup ?? typeStr
         results.append((group, funcName))
     }
-    
+
     return results
 }
 

@@ -1,22 +1,29 @@
-import Foundation
+//
+//  main.swift
+//  ShaderListPlugin
+//
+//  Created by Mateusz Kosikowski on 24/06/2025.
+//
+
 import ArgumentParser
+import Foundation
 import ShaderEnumGeneratorCore
 
 struct ShaderEnumGenerator: ParsableCommand {
     @Argument(help: "Input Metal shader files.")
     var inputFiles: [String]
-    
+
     @Option(name: .shortAndLong, help: "Output Swift file path.")
     var output: String
-    
+
     @Option(name: .shortAndLong, help: "Swift module name.")
     var moduleName: String = "ShaderEnumGenerator"
-    
+
     static var configuration = CommandConfiguration(
         commandName: "ShaderEnumGenerator",
         abstract: "Generates a Swift enum source file from Metal shader function declarations."
     )
-    
+
     func run() throws {
         var functionsByType: [ShaderGroup: Set<String>] = [:]
         for path in inputFiles {
