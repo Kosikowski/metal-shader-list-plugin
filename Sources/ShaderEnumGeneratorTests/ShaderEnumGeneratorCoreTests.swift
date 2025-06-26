@@ -15,7 +15,6 @@ import Testing
 ///   - trimWhitespace: If true, trims leading/trailing whitespace before comparison.
 ///   - file: The file where the expectation is called (for test diagnostics).
 ///   - line: The line where the expectation is called (for test diagnostics).
-//@_transparent
 func expectCodeLinesEqual(
     _ actual: String,
     _ expected: String,
@@ -33,7 +32,8 @@ func expectCodeLinesEqual(
         Actual:   \(actualLines.count) lines
         Actual Lines: \(actual)
         """
-        #expect(false, Comment(rawValue: message), sourceLocation: sourceLocation)
+        #expect(Bool(false), Comment(rawValue: message), sourceLocation: sourceLocation)
+        
         return
     }
     
@@ -59,7 +59,7 @@ func expectCodeLinesEqual(
             ---
             \(actualContext)
             """
-            #expect(false, Comment(rawValue: message), sourceLocation: sourceLocation)
+            #expect(Bool(false), Comment(rawValue: message), sourceLocation: sourceLocation)
             return
         }
     }
