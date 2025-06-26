@@ -53,6 +53,7 @@ func expectCodeLinesEqual(
             Line \(idx + 1) mismatch.
             Expected: \(expectedToCompare)
             Actual:   \(actualToCompare)
+            Source Location: \(sourceLocation.line) [\(sourceLocation.fileID)]
             Context (lines \(startIdx + 1)-\(endIdx)):
             \(expectedContext)
             ---
