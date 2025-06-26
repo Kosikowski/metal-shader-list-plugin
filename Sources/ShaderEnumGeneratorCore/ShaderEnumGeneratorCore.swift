@@ -135,5 +135,15 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>]) -> 
         }
         swiftCode += "}\n\n"
     }
+    
+    for enumGroup in enumGroups {
+        swiftCode += "extension MTLLibrary {\n"
+        swiftCode += "    public func makeFunction(_ name: \(enumGroup.description)) -> MTLFunction? {\n"
+        swiftCode += "        makeFunction(name.rawValue)\n"
+        swiftCode += "    }\n"
+        swiftCode += "}\n\n"
+    }
+    
     return swiftCode
 }
+

@@ -111,3 +111,65 @@ struct ShaderEnumGeneratorCoreTests {
     }
 }
 
+@Suite("ShaderEnumGeneratorCore - Extension Generation")
+struct ShaderEnumGeneratorCoreExtensionTests {
+    @Test("Generates enum and MTLLibrary extension for a single shader group")
+    func testSingleGroupGeneratesExtension() async throws {
+        let metalSource = "vertex float4 vertexMain() { return float4(1); }"
+        let functions = parseShaderFunctions(from: metalSource)
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (groupName, funcName) in functions {
+            grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
+        }
+        let code = generateShaderEnums(functionsByType: grouped)
+        #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
+        #expect(code.contains("case vertexMain = \"vertexMain\""))
+        #expect(code.contains("extension MTLLibrary {"))
+        #expect(code.contains("func makeVertexShader(_ shader: MTLVertexShader) -> MTLFunction?"))
+        #expect(code.contains("return makeFunction(name: shader.rawValue)"))
+    }
+
+    @Test("Generates all enums and MTLLibrary extensions for multiple shader groups")
+    func testMultipleGroupsGenerateExtensions() async throws {
+        let metalSource = """
+        vertex float4 vertexFunc() { return float4(1); }
+        fragment float4 fragmentFunc() { return float4(1); }
+        kernel void kernelFunc() { }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (groupName, funcName) in functions {
+            grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
+        }
+        let code = generateShaderEnums(functionsByType: grouped)
+        #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
+        #expect(code.contains("case vertexFunc = \"vertexFunc\""))
+        #expect(code.contains("public enum MTLFragmentShader: String, CaseIterable"))
+        #expect(code.contains("case fragmentFunc = \"fragmentFunc\""))
+        #expect(code.contains("public enum MTLComputeShader: String, CaseIterable"))
+        #expect(code.contains("case kernelFunc = \"kernelFunc\""))
+        #expect(code.contains("extension MTLLibrary {"))
+        #expect(code.contains("func makeVertexShader(_ shader: MTLVertexShader) -> MTLFunction?"))
+        #expect(code.contains("func makeFragmentShader(_ shader: MTLFragmentShader) -> MTLFunction?"))
+        #expect(code.contains("func makeComputeShader(_ shader: MTLComputeShader) -> MTLFunction?"))
+    }
+    
+    @Test("Generates enum and MTLLibrary extension for custom shader group comment")
+    func testCustomGroupCommentGeneratesExtension() async throws {
+        let metalSource = """
+        //MTLShaderGroup: CustomGroup
+        kernel void customKernel() { }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (groupName, funcName) in functions {
+            grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
+        }
+        let code = generateShaderEnums(functionsByType: grouped)
+        #expect(code.contains("public enum CustomGroup: String, CaseIterable"))
+        #expect(code.contains("case customKernel = \"customKernel\""))
+        #expect(code.contains("extension MTLLibrary {"))
+        #expect(code.contains("func makeCustomGroup(_ shader: CustomGroup) -> MTLFunction?"))
+        #expect(code.contains("return makeFunction(name: shader.rawValue)"))
+    }
+}
