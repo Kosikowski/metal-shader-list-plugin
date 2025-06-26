@@ -9,6 +9,9 @@ struct ShaderEnumGenerator: ParsableCommand {
     @Option(name: .shortAndLong, help: "Output Swift file path.")
     var output: String
     
+    @Option(name: .shortAndLong, help: "Swift module name (defaults to ShaderEnumGenerator).")
+    var moduleName: String = "ShaderEnumGenerator"
+    
     static var configuration = CommandConfiguration(
         commandName: "ShaderEnumGenerator",
         abstract: "Generates a Swift enum source file from Metal shader function declarations."
@@ -24,7 +27,7 @@ struct ShaderEnumGenerator: ParsableCommand {
                 functionsByType[group, default: []].insert(name)
             }
         }
-        let swiftCode = generateShaderEnums(functionsByType: functionsByType)
+        let swiftCode = generateShaderEnums(functionsByType: functionsByType, moduleName: moduleName)
         do {
             try swiftCode.write(toFile: output, atomically: true, encoding: .utf8)
         } catch {
