@@ -144,13 +144,16 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
     }
     swiftCode += "}\n\n"
     // MTLLibrary extensions for every nested group
-    for enumGroup in enumGroups {
+    for (index, enumGroup) in enumGroups.enumerated() {
         let nestedEnumName = enumGroup.description
         swiftCode += "extension MTLLibrary {\n"
         swiftCode += "    public func makeFunction(_ shader: \(parentEnumName).\(nestedEnumName)) -> MTLFunction? {\n"
         swiftCode += "        makeFunction(name: shader.rawValue)\n"
         swiftCode += "    }\n"
-        swiftCode += "}\n\n"
+        swiftCode += "}\n"
+        if index < enumGroups.count - 1 {
+            swiftCode += "\n"
+        }
     }
     return swiftCode
 }
