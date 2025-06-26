@@ -11,10 +11,6 @@ let package = Package(
             name: "ShaderListPlugin",
             targets: ["ShaderListPlugin"]
         ),
-//        .executable(
-//                name: "ShaderEnumGenerator",
-//                targets: ["ShaderEnumGenerator"]
-//            ),
     ], dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0")
     ],
@@ -33,7 +29,6 @@ let package = Package(
                 "ShaderEnumGeneratorCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
             ]
-//            path: "ShaderEnumGenerator"
         ),
         .testTarget(
             name: "ShaderEnumGeneratorTests",
