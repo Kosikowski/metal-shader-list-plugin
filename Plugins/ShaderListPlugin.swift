@@ -7,9 +7,9 @@ struct ShaderEnumsPlugin: BuildToolPlugin {
     
     private static func makeGenerateCommand(
         outputDir: Path,
-        tempOutputFile: Path,
+        outputFile: Path,
         inputPaths: [Path],
-        diagnosticsTargetName: String,
+        targetName: String,
         executable: Path,
         contextToolType: String
     ) throws -> Command? {
@@ -21,22 +21,22 @@ struct ShaderEnumsPlugin: BuildToolPlugin {
             throw error
         }
         
-        Diagnostics.remark("[\(contextToolType)] Output file path: \(tempOutputFile)")
+        Diagnostics.remark("[\(contextToolType)] Output file path: \(outputFile)")
         Diagnostics.remark("[\(contextToolType)] Collected .metal files: \(inputPaths.map { $0.string })")
         
         if inputPaths.isEmpty {
-            Diagnostics.warning("[\(contextToolType)] No .metal files found in target \(diagnosticsTargetName)")
+            Diagnostics.warning("[\(contextToolType)] No .metal files found in target \(targetName)")
             return nil
         }
         
-        Diagnostics.remark("[\(contextToolType)] Generate command arguments: \(inputPaths.map { $0.string } + ["-o", tempOutputFile.string])")
+        Diagnostics.remark("[\(contextToolType)] Generate command arguments: \(inputPaths.map { $0.string } + ["-o", outputFile.string])")
         
         let command = Command.buildCommand(
-            displayName: "Generating Shader Enums for \(diagnosticsTargetName)",
+            displayName: "Generating Shader Enums for \(targetName)",
             executable: executable,
-            arguments: inputPaths.map { $0.string } + ["-o", tempOutputFile.string],
+            arguments: inputPaths.map { $0.string } + ["-o", outputFile.string] + ["-m", targetName],
             inputFiles: inputPaths,
-            outputFiles: [tempOutputFile]
+            outputFiles: [outputFile]
         )
         
         return command
@@ -49,15 +49,15 @@ struct ShaderEnumsPlugin: BuildToolPlugin {
         }
         
         let outputDir = context.pluginWorkDirectory.appending("Generated")
-        let tempOutputFile = outputDir.appending("\(target.name)ShaderEnums.generated.swift")
+        let outputFile = outputDir.appending("\(target.name)ShaderEnums.generated.swift")
         let inputPaths = target.sourceFiles(withSuffix: ".metal").map { $0.path }
         
         do {
             if let generateCommand = try Self.makeGenerateCommand(
                 outputDir: outputDir,
-                tempOutputFile: tempOutputFile,
+                outputFile: outputFile,
                 inputPaths: inputPaths,
-                diagnosticsTargetName: target.name,
+                targetName: target.name,
                 executable: try context.tool(named: "ShaderEnumGenerator").path,
                 contextToolType: "swiftpm"
             ) {
@@ -84,9 +84,9 @@ extension ShaderEnumsPlugin: XcodeBuildToolPlugin {
         
         if let generateCommand = try ShaderEnumsPlugin.makeGenerateCommand(
                 outputDir: outputDir,
-                tempOutputFile: outputFile,
+                outputFile: outputFile,
                 inputPaths: inputPaths,
-                diagnosticsTargetName: target.displayName,
+                targetName: target.displayName,
                 executable: try context.tool(named: "ShaderEnumGenerator").path,
                 contextToolType: "xcode"
         ) {

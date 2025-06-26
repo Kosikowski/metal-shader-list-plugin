@@ -9,7 +9,7 @@ struct ShaderEnumGenerator: ParsableCommand {
     @Option(name: .shortAndLong, help: "Output Swift file path.")
     var output: String
     
-    @Option(name: .shortAndLong, help: "Swift module name (defaults to ShaderEnumGenerator).")
+    @Option(name: .shortAndLong, help: "Swift module name.")
     var moduleName: String = "ShaderEnumGenerator"
     
     static var configuration = CommandConfiguration(
