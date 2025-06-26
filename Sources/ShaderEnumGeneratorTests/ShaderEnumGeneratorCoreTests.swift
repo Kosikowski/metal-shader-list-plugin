@@ -25,11 +25,12 @@ struct ShaderEnumGeneratorCoreTests {
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_MTLVertexShader: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
         #expect(code.contains("case vertex_passthrough = \"vertex_passthrough\""))
-        #expect(code.contains("public enum TestTarget_MTLFragmentShader: String, CaseIterable"))
+        #expect(code.contains("public enum MTLFragmentShader: String, CaseIterable"))
         #expect(code.contains("case fragment_main = \"fragment_main\""))
-        #expect(code.contains("public enum TestTarget_MTLComputeShader: String, CaseIterable"))
+        #expect(code.contains("public enum MTLComputeShader: String, CaseIterable"))
         #expect(code.contains("case kernel_func = \"kernel_func\""))
     }
 
@@ -84,9 +85,10 @@ struct ShaderEnumGeneratorCoreTests {
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_FancyShaderGroup: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
         #expect(code.contains("case customFunc = \"customFunc\""))
-        #expect(code.contains("public enum TestTarget_Another: String, CaseIterable"))
+        #expect(code.contains("public enum Another: String, CaseIterable"))
         #expect(code.contains("case otherFunc = \"otherFunc\""))
     }
     
@@ -103,9 +105,10 @@ struct ShaderEnumGeneratorCoreTests {
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions { grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name) }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_FancyShaderGroup: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum FancyShaderGroup: String, CaseIterable"))
         #expect(code.contains("case vertex_newline = \"vertex_newline\""))
-        #expect(code.contains("public enum TestTarget_Another: String, CaseIterable"))
+        #expect(code.contains("public enum Another: String, CaseIterable"))
         #expect(code.contains("case fragment_tabbed = \"fragment_tabbed\""))
     }
 }
@@ -121,10 +124,11 @@ struct ShaderEnumGeneratorCoreExtensionTests {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
         }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_MTLVertexShader: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
         #expect(code.contains("case vertexMain = \"vertexMain\""))
         #expect(code.contains("extension MTLLibrary {"))
-        #expect(code.contains("public func makeFunction(_ shader: TestTarget_MTLVertexShader) -> MTLFunction?"))
+        #expect(code.contains("public func makeFunction(_ shader: TestTargetMTLShaders.MTLVertexShader) -> MTLFunction?"))
         #expect(code.contains("makeFunction(name: shader.rawValue)"))
     }
 
@@ -141,16 +145,17 @@ struct ShaderEnumGeneratorCoreExtensionTests {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
         }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_MTLVertexShader: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum MTLVertexShader: String, CaseIterable"))
         #expect(code.contains("case vertexFunc = \"vertexFunc\""))
-        #expect(code.contains("public enum TestTarget_MTLFragmentShader: String, CaseIterable"))
+        #expect(code.contains("public enum MTLFragmentShader: String, CaseIterable"))
         #expect(code.contains("case fragmentFunc = \"fragmentFunc\""))
-        #expect(code.contains("public enum TestTarget_MTLComputeShader: String, CaseIterable"))
+        #expect(code.contains("public enum MTLComputeShader: String, CaseIterable"))
         #expect(code.contains("case kernelFunc = \"kernelFunc\""))
         #expect(code.contains("extension MTLLibrary {"))
-        #expect(code.contains("func makeFunction(_ shader: TestTarget_MTLVertexShader) -> MTLFunction?"))
-        #expect(code.contains("func makeFunction(_ shader: TestTarget_MTLFragmentShader) -> MTLFunction?"))
-        #expect(code.contains("func makeFunction(_ shader: TestTarget_MTLComputeShader) -> MTLFunction?"))
+        #expect(code.contains("func makeFunction(_ shader: TestTargetMTLShaders.MTLVertexShader) -> MTLFunction?"))
+        #expect(code.contains("func makeFunction(_ shader: TestTargetMTLShaders.MTLFragmentShader) -> MTLFunction?"))
+        #expect(code.contains("func makeFunction(_ shader: TestTargetMTLShaders.MTLComputeShader) -> MTLFunction?"))
     }
     
     @Test("Generates enum and MTLLibrary extension for custom shader group comment")
@@ -165,10 +170,11 @@ struct ShaderEnumGeneratorCoreExtensionTests {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
         }
         let code = generateShaderEnums(functionsByType: grouped, moduleName: "TestTarget")
-        #expect(code.contains("public enum TestTarget_CustomGroup: String, CaseIterable"))
+        #expect(code.contains("public enum TestTargetMTLShaders"))
+        #expect(code.contains("public enum CustomGroup: String, CaseIterable"))
         #expect(code.contains("case customKernel = \"customKernel\""))
         #expect(code.contains("extension MTLLibrary {"))
-        #expect(code.contains("func makeFunction(_ shader: TestTarget_CustomGroup) -> MTLFunction?"))
+        #expect(code.contains("func makeFunction(_ shader: TestTargetMTLShaders.CustomGroup) -> MTLFunction?"))
         #expect(code.contains("makeFunction(name: shader.rawValue)"))
     }
 }
