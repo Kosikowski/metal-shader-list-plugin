@@ -8,23 +8,6 @@
 // Shared core logic for parsing Metal shaders and generating Swift enums
 import Foundation
 
-public enum ShaderType: String, CaseIterable, Equatable {
-    case vertex
-    case fragment
-    case kernel
-    case compute
-    case unknown
-
-    public var enumName: String {
-        switch self {
-        case .vertex: return "MTLVertexShader"
-        case .fragment: return "MTLFragmentShader"
-        case .kernel, .compute: return "MTLComputeShader"
-        case .unknown: return "MTLUnknownShader"
-        }
-    }
-}
-
 public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
     case vertex, fragment, kernel, compute, unknown
     case custom(String)
@@ -50,13 +33,13 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
         }
     }
     
-    public static func from(raw: String) -> ShaderGroup {
-        switch raw.lowercased() {
+    public static func from(rawValue: String) -> ShaderGroup {
+        switch rawValue.lowercased() {
         case "vertex": return .vertex
         case "fragment": return .fragment
         case "kernel": return .kernel
         case "compute": return .compute
-        default: return .custom(raw)
+        default: return .custom(rawValue)
         }
     }
 }

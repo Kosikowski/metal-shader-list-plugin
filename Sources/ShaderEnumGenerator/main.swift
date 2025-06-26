@@ -20,7 +20,7 @@ struct ShaderEnumGenerator: ParsableCommand {
             guard let content = try? String(contentsOfFile: path) else { continue }
             let functions = parseShaderFunctions(from: content)
             for (type, name) in functions where !name.isEmpty {
-                let group = ShaderGroup.from(raw: type)
+                let group = ShaderGroup.from(rawValue: type)
                 functionsByType[group, default: []].insert(name)
             }
         }
