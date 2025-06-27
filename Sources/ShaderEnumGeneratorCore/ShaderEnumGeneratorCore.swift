@@ -8,6 +8,8 @@
 // Shared core logic for parsing Metal shaders and generating Swift enums
 import Foundation
 
+let shaderGroupCommentPrefix = "MTLShaderGroup:"
+
 public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
     case vertex, fragment, kernel, compute, unknown
     case custom(String)
@@ -53,7 +55,7 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     let text = removingAllComments(from: text)
     var results: [(String, String)] = []
     let functionPattern = #"\b(vertex|fragment|kernel|compute)\s+\w+\s+(\w+)\s*\("#
-    let commentPattern = #"//MTLShaderGroup:\s*([A-Za-z_][A-Za-z0-9_]*)"#
+    let commentPattern = "//" + shaderGroupCommentPrefix + #"\s*([A-Za-z_][A-Za-z0-9_]*)"#
 
     guard let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
           let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: [])
@@ -163,19 +165,117 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
 }
 
 /// Removes all line (//, ///) and block (/* */) comments from the input string.
-private func removingAllComments(from text: String) -> String {
-    var noBlockComments = text
-    // Remove block comments (/* ... */)
-    let blockCommentPattern = "/\\*.*?\\*/"
-    if let blockRegex = try? NSRegularExpression(pattern: blockCommentPattern, options: [.dotMatchesLineSeparators]) {
-        let range = NSRange(noBlockComments.startIndex..<noBlockComments.endIndex, in: noBlockComments)
-        noBlockComments = blockRegex.stringByReplacingMatches(in: noBlockComments, options: [], range: range, withTemplate: "")
+/// Preserves string literals and skips comments even if inside strings.
+/// Returns the code with all comments removed, retaining newlines to preserve structure.
+func removingAllComments(from text: String) -> String {
+    var output = "" // The output string, accumulating non-comment/non-skipped characters
+    var i = text.startIndex
+    let end = text.endIndex
+    // State variables:
+    var inString = false // True if inside a string literal (single or double quotes)
+    var stringDelimiter: Character? = nil // Tracks which quote opened the string
+    var inLineComment = false // True if inside a line comment (//)
+    var inBlockComment = false // True if inside a block comment (/* */)
+    var prevChar: Character? = nil // Tracks previous character (for escaped strings)
+
+    // Iterate through the entire string character by character
+    while i < end {
+        let c = text[i] // Current character
+        let nextIndex = text.index(after: i)
+        let nextChar = nextIndex < end ? text[nextIndex] : nil // Next character, if available
+
+        if inLineComment {
+            // If we're inside a line comment, only end it when we see a newline
+            if c == "\n" {
+                inLineComment = false // Exiting line comment
+                output.append(c) // Preserve the newline
+            }
+            i = text.index(after: i)
+            continue // Skip all other characters in the comment
+        } else if inBlockComment {
+            // If inside a block comment, look specifically for the closing '*/'
+            if c == "*" && nextChar == "/" {
+                inBlockComment = false // Exiting block comment
+                // Skip both '*' and '/'
+                i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                prevChar = nil
+                continue
+            }
+            // Otherwise, skip this character
+            i = text.index(after: i)
+            continue
+        } else if inString {
+            // If in a string literal, always append the character
+            output.append(c)
+            // Only exit string if the delimiter (single/double quote) is found and not escaped
+            if c == stringDelimiter && prevChar != "\\" {
+                inString = false
+                stringDelimiter = nil
+            }
+            prevChar = c
+            i = text.index(after: i)
+            continue
+        } else {
+            // Not in comment or string: check for new string, comment, or regular code
+
+            // Start of a string literal (single or double quote)
+            if (c == "\"" || c == "'") {
+                inString = true
+                stringDelimiter = c
+                output.append(c)
+                prevChar = c
+                i = text.index(after: i)
+                continue
+            }
+            // Start of a line comment ('//'), but not inside a string or block comment
+            if c == "/" && nextChar == "/" {
+                // Check if this comment is a shader group comment
+                // Look ahead to see if after "//" is "MTLShaderGroup:" or " MTLShaderGroup:"
+                let commentStartIndex = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                // Extract substring from commentStartIndex to next newline or end of text
+                var commentEndIndex = commentStartIndex
+                while commentEndIndex < end && text[commentEndIndex] != "\n" {
+                    commentEndIndex = text.index(after: commentEndIndex)
+                }
+                let commentContent = text[commentStartIndex..<commentEndIndex]
+                let commentString = commentContent.trimmingCharacters(in: .whitespaces)
+                if commentString.hasPrefix(shaderGroupCommentPrefix) {
+                    // Append entire comment line including "//"
+                    output.append("//")
+                    output.append(contentsOf: commentString)
+                    // Append newline if present
+                    if commentEndIndex < end && text[commentEndIndex] == "\n" {
+                        output.append("\n")
+                        i = text.index(after: commentEndIndex)
+                    } else {
+                        i = commentEndIndex
+                    }
+                    prevChar = nil
+                    continue
+                } else {
+                    // Normal line comment - skip it
+                    inLineComment = true
+                    // Skip both '/' characters (don't append either)
+                    i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                    prevChar = c
+                    continue
+                }
+            }
+            // Start of a block comment ('/* ... */')
+            if c == "/" && nextChar == "*" {
+                inBlockComment = true
+                // Skip both '/' and '*' characters
+                i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                prevChar = c
+                continue
+            }
+            // Otherwise, it's regular code: append the character
+            output.append(c)
+            prevChar = c
+            i = text.index(after: i)
+        }
     }
-    // Remove single line comments (// or ///)
-    let lineCommentPattern = "(?m)^\\s*//.*$"
-    if let lineRegex = try? NSRegularExpression(pattern: lineCommentPattern, options: []) {
-        let range = NSRange(noBlockComments.startIndex..<noBlockComments.endIndex, in: noBlockComments)
-        noBlockComments = lineRegex.stringByReplacingMatches(in: noBlockComments, options: [], range: range, withTemplate: "")
-    }
-    return noBlockComments
+    // When finished, 'output' contains all code with comments removed
+    return output
 }
+
