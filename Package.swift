@@ -32,7 +32,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ShaderEnumGeneratorTests",
-            dependencies: ["ShaderEnumGeneratorCore", "ShaderEnumGenerator"]
+            dependencies: [
+                "ShaderEnumGenerator",
+                "ShaderEnumGeneratorCore",
+            ]
         ),
     ]
 )
