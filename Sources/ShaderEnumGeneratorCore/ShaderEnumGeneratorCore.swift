@@ -50,6 +50,7 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 /// otherwise the function type (vertex|fragment|kernel|compute) is used as the group.
 /// Returns array of tuples: (group name string, function name string).
 public func parseShaderFunctions(from text: String) -> [(String, String)] {
+    let text = removingAllComments(from: text)
     var results: [(String, String)] = []
     let functionPattern = #"\b(vertex|fragment|kernel|compute)\s+\w+\s+(\w+)\s*\("#
     let commentPattern = #"//MTLShaderGroup:\s*([A-Za-z_][A-Za-z0-9_]*)"#
@@ -159,4 +160,22 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
         }
     }
     return swiftCode
+}
+
+/// Removes all line (//, ///) and block (/* */) comments from the input string.
+private func removingAllComments(from text: String) -> String {
+    var noBlockComments = text
+    // Remove block comments (/* ... */)
+    let blockCommentPattern = "/\\*.*?\\*/"
+    if let blockRegex = try? NSRegularExpression(pattern: blockCommentPattern, options: [.dotMatchesLineSeparators]) {
+        let range = NSRange(noBlockComments.startIndex..<noBlockComments.endIndex, in: noBlockComments)
+        noBlockComments = blockRegex.stringByReplacingMatches(in: noBlockComments, options: [], range: range, withTemplate: "")
+    }
+    // Remove single line comments (// or ///)
+    let lineCommentPattern = "(?m)^\\s*//.*$"
+    if let lineRegex = try? NSRegularExpression(pattern: lineCommentPattern, options: []) {
+        let range = NSRange(noBlockComments.startIndex..<noBlockComments.endIndex, in: noBlockComments)
+        noBlockComments = lineRegex.stringByReplacingMatches(in: noBlockComments, options: [], range: range, withTemplate: "")
+    }
+    return noBlockComments
 }
