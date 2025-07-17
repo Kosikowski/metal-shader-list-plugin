@@ -15,7 +15,7 @@ let shaderGroupCommentPrefix = "MTLShaderGroup:"
 /// Validates that a shader group name only contains A-Z and a-z characters
 /// - Parameter groupName: The shader group name to validate
 /// - Throws: Error if invalid
-private func validateShaderGroupName(_ groupName: String) throws {
+public func validateShaderGroupName(_ groupName: String) throws {
     let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
 
     // Check for empty names
@@ -40,7 +40,7 @@ private func validateShaderGroupName(_ groupName: String) throws {
 /// Extracts and validates shader group names from Metal shader source code
 /// - Parameter text: The Metal shader source code
 /// - Throws: Error if validation fails
-private func validateShaderGroupNames(in text: String) throws {
+public func validateShaderGroupNames(in text: String) throws {
     let lines = text.components(separatedBy: .newlines)
 
     for (lineNumber, line) in lines.enumerated() {
