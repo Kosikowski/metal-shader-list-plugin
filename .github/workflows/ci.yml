@@ -20,8 +20,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - swift-version: 5.9
-            runner: macos-14
           - swift-version: 6.1.2
             runner: macos-latest
     steps:
@@ -51,9 +49,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - swift-version: 5.9
-            runner: macos-14
-            use_xcodebuild: true
           - swift-version: 6.1.2
             runner: macos-latest
             use_xcodebuild: false
@@ -69,13 +64,7 @@ jobs:
           swift-version: ${{ matrix.swift-version }}
       - name: Clean build directory
         run: rm -rf .build
-      - name: Build and Test
-        if: matrix.use_xcodebuild == true
-        run: |
-          swift build -v
-          swift test -v
       - name: Build and Test (SwiftPM)
-        if: matrix.use_xcodebuild == false
         run: |
           swift build -v
           swift test -v
@@ -86,9 +75,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - swift-version: 5.9
-            runner: macos-14
-            use_xcodebuild: true
           - swift-version: 6.1.2
             runner: macos-latest
             use_xcodebuild: false
@@ -104,13 +90,7 @@ jobs:
           swift-version: ${{ matrix.swift-version }}
       - name: Clean build directory
         run: rm -rf .build
-      - name: Build and Test
-        if: matrix.use_xcodebuild == true
-        run: |
-          swift build -v
-          swift test -v
       - name: Build and Test (SwiftPM)
-        if: matrix.use_xcodebuild == false
         run: |
           swift build -v
           swift test -v
@@ -121,9 +101,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - swift-version: 5.9
-            runner: macos-14
-            use_xcodebuild: true
           - swift-version: 6.1.2
             runner: macos-latest
             use_xcodebuild: false
@@ -139,13 +116,7 @@ jobs:
           swift-version: ${{ matrix.swift-version }}
       - name: Clean build directory
         run: rm -rf .build
-      - name: Build and Test
-        if: matrix.use_xcodebuild == true
-        run: |
-          swift build -v
-          swift test -v
       - name: Build and Test (SwiftPM)
-        if: matrix.use_xcodebuild == false
         run: |
           swift build -v
           swift test -v
@@ -156,7 +127,7 @@ jobs:
     name: Linux (Swift ${{ matrix.swift-version }})
     strategy:
       matrix:
-        swift-version: [5.9, 6.1.2]
+        swift-version: [6.1.2]
     steps:
       - uses: actions/checkout@v4
       - name: Install Swift
@@ -175,7 +146,7 @@ jobs:
     name: Linux Release (Swift ${{ matrix.swift-version }})
     strategy:
       matrix:
-        swift-version: [5.9, 6.1.2]
+        swift-version: [6.1.2]
     steps:
       - uses: actions/checkout@v4
       - name: Install Swift
@@ -195,7 +166,7 @@ jobs:
     name: Windows (Swift ${{ matrix.swift-version }})
     strategy:
       matrix:
-        swift-version: [5.9, 6.1.2]
+        swift-version: [6.1.2]
     steps:
       - uses: actions/checkout@v4
       - name: Install Swift
@@ -214,7 +185,7 @@ jobs:
     name: Windows Release (Swift ${{ matrix.swift-version }})
     strategy:
       matrix:
-        swift-version: [5.9, 6.1.2]
+        swift-version: [6.1.2]
     steps:
       - uses: actions/checkout@v4
       - name: Install Swift
@@ -240,7 +211,7 @@ jobs:
     - name: Setup Swift
       uses: SwiftyLab/setup-swift@v1
       with:
-        swift-version: '5.9'
+        swift-version: '6.1.2'
 
     - name: Install SwiftFormat
       run: |
@@ -280,7 +251,7 @@ jobs:
     - name: Setup Swift
       uses: SwiftyLab/setup-swift@v1
       with:
-        swift-version: '5.9'
+        swift-version: '6.1.2'
 
     - name: Check package description
       run: swift package describe

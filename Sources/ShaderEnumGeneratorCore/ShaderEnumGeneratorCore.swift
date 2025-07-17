@@ -180,175 +180,140 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
 
 /// Removes all line (//, ///) and block (/* */) comments from the input string.
 /// Preserves string literals and skips comments even if inside strings.
-/// Returns the code with all comments removed, retaining newlines to preserve structure.
+/// Returns the code with all comments removed, retaining newlines to preserve structure and not leaving trailing spaces or extra blank lines.
 func removingAllComments(from text: String) -> String {
-    var output = "" // The output string, accumulating non-comment/non-skipped characters
+    var output = ""
     var i = text.startIndex
     let end = text.endIndex
-    // State variables:
-    var inString = false // True if inside a string literal (single or double quotes)
-    var stringDelimiter: Character? = nil // Tracks which quote opened the string
-    var inLineComment = false // True if inside a line comment (//)
-    var inBlockComment = false // True if inside a block comment (/* */)
-    var prevChar: Character? = nil // Tracks previous character (for escaped strings)
+    var inString = false
+    var stringDelimiter: Character? = nil
+    var inBlockComment = false
+    var prevChar: Character? = nil
+    let shaderGroupPrefix = "//" + shaderGroupCommentPrefix
+    var lastNewlineIndex: String.Index? = text.startIndex
+    var blockCommentIndent = ""
 
-    // Helper: Check if a line comment starts at the first non-whitespace character and is NOT a shader group comment
-    func isRemovableFullLineComment(at idx: String.Index) -> Bool {
-        // Find the start of the line
-        var lineStart = idx
-        while lineStart > text.startIndex, text[text.index(before: lineStart)] != "\n" {
-            lineStart = text.index(before: lineStart)
-        }
-        // Skip whitespace
-        var scan = lineStart
-        while scan < end, text[scan].isWhitespace, text[scan] != "\n" {
-            scan = text.index(after: scan)
-        }
-        // Check for // or ///
-        if scan < end, text[scan] == "/" {
-            let next = text.index(after: scan)
-            if next < end, text[next] == "/" {
-                // Check if this is a shader group comment
-                let afterSlashes = text.index(next, offsetBy: 1, limitedBy: end) ?? end
-                let groupPrefix = "MTLShaderGroup:"
-                if afterSlashes < end {
-                    let remaining = text[afterSlashes ..< end]
-                    if remaining.trimmingCharacters(in: .whitespaces).hasPrefix(groupPrefix) {
-                        return false // It's a shader group comment, do not remove
-                    }
-                }
-                // It's a removable full-line comment
-                return scan == idx
-            }
-        }
-        return false
-    }
-
-    // Iterate through the entire string character by character
     while i < end {
-        let c = text[i] // Current character
+        let c = text[i]
         let nextIndex = text.index(after: i)
-        let nextChar = nextIndex < end ? text[nextIndex] : nil // Next character, if available
+        let nextChar = nextIndex < end ? text[nextIndex] : nil
 
-        if inLineComment {
-            // If we're inside a line comment, only end it when we see a newline
-            if c == "\n" {
-                inLineComment = false // Exiting line comment
-                output.append(c) // Preserve the newline
-            }
-            i = text.index(after: i)
-            continue // Skip all other characters in the comment
-        } else if inBlockComment {
-            // If inside a block comment, look specifically for the closing '*/'
+        if inBlockComment {
+            // Look for end of block comment
             if c == "*", nextChar == "/" {
-                inBlockComment = false // Exiting block comment
-                // Skip all consecutive '*/' sequences
-                var idx = text.index(i, offsetBy: 2, limitedBy: end) ?? end
-                while idx < end {
-                    let nextStar = idx < end ? text[idx] : nil
-                    let nextSlash = (idx < end && text.index(after: idx) < end) ? text[text.index(after: idx)] : nil
-                    if nextStar == "*", nextSlash == "/" {
-                        idx = text.index(idx, offsetBy: 2, limitedBy: end) ?? end
-                    } else {
-                        break
-                    }
+                inBlockComment = false
+                // Move i to after the comment
+                i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                // Restore the space that was before the comment
+                output.append(blockCommentIndent)
+                // Check if there's a space after the block comment
+                if i < end, text[i] == " " {
+                    output.append(" ")
                 }
-                i = idx
-                prevChar = nil
+                blockCommentIndent = ""
                 continue
             }
-            // Otherwise, skip this character
+            // Do not append newlines inside block comments
             i = text.index(after: i)
             continue
-        } else if inString {
-            // If in a string literal, always append the character
+        }
+        if inString {
             output.append(c)
-            // Only exit string if the delimiter (single/double quote) is found and not escaped
             if c == stringDelimiter, prevChar != "\\" {
                 inString = false
                 stringDelimiter = nil
             }
             prevChar = c
+            if c == "\n" {
+                lastNewlineIndex = text.index(after: i)
+            }
             i = text.index(after: i)
             continue
-        } else {
-            // Not in comment or string: check for new string, comment, or regular code
-
-            // Start of a string literal (single or double quote)
-            if c == "\"" || c == "'" {
-                inString = true
-                stringDelimiter = c
-                output.append(c)
-                prevChar = c
-                i = text.index(after: i)
-                continue
-            }
-            // Start of a line comment ('//'), but not inside a string or block comment
-            if c == "/", nextChar == "/" {
-                // Check if this is a removable full-line comment (not a shader group comment)
-                if isRemovableFullLineComment(at: i) {
-                    // Skip to the next newline (remove the whole line)
-                    var skipIdx = i
-                    while skipIdx < end, text[skipIdx] != "\n" {
-                        skipIdx = text.index(after: skipIdx)
-                    }
-                    // If we stopped at a newline, skip it too
-                    if skipIdx < end, text[skipIdx] == "\n" {
-                        skipIdx = text.index(after: skipIdx)
-                    }
-                    i = skipIdx
-                    prevChar = nil
-                    continue
-                }
-                // Check if this comment is a shader group comment
-                // Look ahead to see if after "//" is "MTLShaderGroup:" or " MTLShaderGroup:"
-                let commentStartIndex = text.index(i, offsetBy: 2, limitedBy: end) ?? end
-                // Extract substring from commentStartIndex to next newline or end of text
-                var commentEndIndex = commentStartIndex
-                while commentEndIndex < end, text[commentEndIndex] != "\n" {
-                    commentEndIndex = text.index(after: commentEndIndex)
-                }
-                let commentContent = text[commentStartIndex ..< commentEndIndex]
-                let commentString = commentContent.trimmingCharacters(in: .whitespaces)
-                if commentString.hasPrefix(shaderGroupCommentPrefix) {
-                    // Append entire comment line including "//"
-                    output.append("//")
-                    output.append(contentsOf: commentString)
-                    // Append newline if present
-                    if commentEndIndex < end, text[commentEndIndex] == "\n" {
-                        output.append("\n")
-                        i = text.index(after: commentEndIndex)
-                    } else {
-                        i = commentEndIndex
-                    }
-                    prevChar = nil
-                    continue
-                } else {
-                    // Normal line comment - skip it
-                    inLineComment = true
-                    // Skip both '/' characters (don't append either)
-                    i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
-                    prevChar = c
-                    continue
-                }
-            }
-            // Start of a block comment ('/* ... */')
-            if c == "/", nextChar == "*" {
-                inBlockComment = true
-                // Skip both '/' and '*' characters
-                i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
-                prevChar = c
-                continue
-            }
-            // Otherwise, it's regular code: append the character
+        }
+        // Start of string literal
+        if c == "\"" || c == "'" {
+            inString = true
+            stringDelimiter = c
             output.append(c)
             prevChar = c
             i = text.index(after: i)
+            continue
         }
+        // Start of block comment
+        if c == "/", nextChar == "*" {
+            inBlockComment = true
+            // Check if there was a space before the block comment
+            let hadSpaceBefore = !output.isEmpty && output.last! == " "
+            i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+            // Store whether we had a space before the comment
+            blockCommentIndent = hadSpaceBefore ? " " : ""
+            continue
+        }
+        // Start of line comment
+        if c == "/", nextChar == "/" {
+            // Check if this is a shader group comment
+            let commentStartIndex = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+            // Find the end of the line
+            var commentEndIndex = commentStartIndex
+            while commentEndIndex < end, text[commentEndIndex] != "\n" {
+                commentEndIndex = text.index(after: commentEndIndex)
+            }
+            let commentContent = text[commentStartIndex ..< commentEndIndex].trimmingCharacters(in: .whitespaces)
+            if commentContent.hasPrefix(shaderGroupCommentPrefix) {
+                // Keep the shader group comment as is (trimmed)
+                output.append(shaderGroupPrefix)
+                output.append(contentsOf: commentContent.dropFirst(shaderGroupCommentPrefix.count))
+                if commentEndIndex < end, text[commentEndIndex] == "\n" {
+                    output.append("\n")
+                    lastNewlineIndex = text.index(after: commentEndIndex)
+                    i = text.index(after: commentEndIndex)
+                } else {
+                    i = commentEndIndex
+                }
+                prevChar = nil
+                continue
+            } else {
+                // Skip to the end of the line (remove the comment)
+                // But if there is code after the comment, preserve indentation
+                var afterComment = commentEndIndex
+                while afterComment < end, text[afterComment].isWhitespace, text[afterComment] != "\n" {
+                    afterComment = text.index(after: afterComment)
+                }
+                if afterComment < end, text[afterComment] != "\n" {
+                    // There is code after the comment on the same line
+                    let lineStart = lastNewlineIndex ?? text.startIndex
+                    var indent = ""
+                    var scan = lineStart
+                    while scan < i, text[scan].isWhitespace, text[scan] != "\n" {
+                        indent.append(text[scan])
+                        scan = text.index(after: scan)
+                    }
+                    output.append(indent)
+                }
+                // Skip to the end of the line
+                i = commentEndIndex
+                if i < end, text[i] == "\n" {
+                    output.append("\n")
+                    lastNewlineIndex = text.index(after: i)
+                    i = text.index(after: i)
+                }
+                prevChar = nil
+                continue
+            }
+        }
+        // Otherwise, regular code
+        output.append(c)
+        prevChar = c
+        if c == "\n" {
+            lastNewlineIndex = text.index(after: i)
+        }
+        i = text.index(after: i)
     }
-    // When finished, 'output' contains all code with comments removed
-    // Remove all empty lines (lines containing only whitespace)
+    // Post-process: remove all leading/trailing whitespace and empty lines
     let lines = output.components(separatedBy: .newlines)
-    let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-    return nonEmptyLines.joined(separator: "\n")
+    let cleaned = lines.compactMap { line -> String? in
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+    return cleaned.joined(separator: "\n")
 }

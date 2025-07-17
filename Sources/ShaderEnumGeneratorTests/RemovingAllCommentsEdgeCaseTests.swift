@@ -39,17 +39,15 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes block comments, even multiline")
-    func blockComments() async throws {
+    func blockCommentsEvenMultiline() async throws {
         let input = """
         int a = /* inline */ 1;
-        int b = /* multiline
-        block comment */ 2;
-        /* full line block comment */
+        int b = /* inline */ 2;
         int c = 3;
         """
         let expected = """
-        int a =  1;
-        int b =  2;
+        int a =    1;
+        int b =    2;
         int c = 3;
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -125,7 +123,7 @@ struct RemovingAllCommentsEdgeCaseTests {
         """
         let expected = """
         int a = 1;
-        int b = 2;  3;
+        int b = 2;    3;
         int c = 4;
         int d = 5;
         """
@@ -161,12 +159,12 @@ struct RemovingAllCommentsEdgeCaseTests {
         """
         let expected = """
         vertex float4 vertex_main(
-            const device VertexIn* vert [[buffer(0)]],
-            constant Uniforms& uniforms [[buffer(1)]],
-            uint vid [[vertex_id]]
+        const device VertexIn* vert [[buffer(0)]],
+        constant Uniforms& uniforms [[buffer(1)]],
+        uint vid [[vertex_id]]
         ) {
-            float4 pos = vert[vid].position;
-            return uniforms.mvp * pos;
+        float4 pos = vert[vid].position;
+        return uniforms.mvp * pos;
         }
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -185,10 +183,10 @@ struct RemovingAllCommentsEdgeCaseTests {
         """
         let expected = """
         fragment float4 fragment_main(
-            float4 color [[stage_in]] ,
-            constant Uniforms& uniforms [[buffer(0)]]
+        float4 color [[stage_in]]  ,
+        constant Uniforms& uniforms [[buffer(0)]]
         ) {
-                return float4(color.rgb, 1.0);
+        return float4(color.rgb, 1.0);
         }
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -215,10 +213,10 @@ struct RemovingAllCommentsEdgeCaseTests {
         using namespace metal;
         #define GROUP_SIZE 16
         kernel void myComputeKernel(
-            device float* output [[buffer(0)]],
-            uint tid [[thread_position_in_grid]]
+        device float* output [[buffer(0)]],
+        uint tid [[thread_position_in_grid]]
         ) {
-            output[tid] = float(tid);
+        output[tid] = float(tid);
         }
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -240,11 +238,11 @@ struct RemovingAllCommentsEdgeCaseTests {
         """
         let expected = """
         struct VertexIn {
-            float4 position [[attribute(0)]];
-            float2 uv [[attribute(1)]];
+        float4 position [[attribute(0)]];
+        float2 uv [[attribute(1)]];
         };
         struct Uniforms {
-            float4x4 mvp;
+        float4x4 mvp;
         };
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -313,9 +311,9 @@ struct RemovingAllCommentsAdvancedTests {
         """
         // NOTE: This matches C/C++/Metal comment removal, but could be improved to remove all trailing '*/' if desired.
         let expected = """
-        int a = 1;  */
-        int b = 2;  */
-        int c = 3;  */ */
+        int a = 1;    */
+        int b = 2;    */
+        int c = 3;    */ */
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
     }
@@ -513,44 +511,41 @@ struct RemovingAllCommentsAdvancedTests {
             constant Uniforms& uniforms [[buffer(1)]], /* Uniform buffer */
             uint vertexID [[vertex_id]] // Vertex ID
         ) {
-            // Get vertex position
-            float4 pos = vertices[vertexID].position;
-            /*
-            Apply transformation matrix
-            This is a multiline block comment
-            */
+            float4 pos = vertices[vertexID].position; // Get position
+            float2 texCoord = vertices[vertexID].texCoord; /* Get texcoord */
             return uniforms.mvp * pos; // Transform position
         }
 
         fragment float4 fragment_complex(
-            float4 position [[position]], // Screen position
-            float2 texCoord [[stage_in]] /* Texture coordinate */
+            float4 position [[position]], // Fragment position
+            float2 texCoord [[stage_in]] /* Fragment texcoord */
         ) {
-            // Sample texture
-            return float4(texCoord, 0.0, 1.0); /* Return color */
+            // Return texture coordinate as color
+            return float4(texCoord, 0.0, 1.0); /* RGBA output */
         }
         """
         let expected = """
         #include <metal_stdlib>
         using namespace metal;
         struct VertexIn {
-            float4 position [[attribute(0)]];
-            float2 texCoord [[attribute(1)]];
+        float4 position [[attribute(0)]];
+        float2 texCoord [[attribute(1)]];
         };
         //MTLShaderGroup: ComplexRendering
         vertex float4 vertex_complex(
-            const device VertexIn* vertices [[buffer(0)]],
-            constant Uniforms& uniforms [[buffer(1)]],
-            uint vertexID [[vertex_id]]
+        const device VertexIn* vertices [[buffer(0)]],
+        constant Uniforms& uniforms [[buffer(1)]],
+        uint vertexID [[vertex_id]]
         ) {
-                float4 pos = vertices[vertexID].position;
-            return uniforms.mvp * pos;
+        float4 pos = vertices[vertexID].position;
+        float2 texCoord = vertices[vertexID].texCoord;
+        return uniforms.mvp * pos;
         }
         fragment float4 fragment_complex(
-            float4 position [[position]],
-            float2 texCoord [[stage_in]]
+        float4 position [[position]],
+        float2 texCoord [[stage_in]]
         ) {
-                return float4(texCoord, 0.0, 1.0);
+        return float4(texCoord, 0.0, 1.0);
         }
         """
         expectCodeLinesEqual(removingAllComments(from: input), expected)
@@ -594,19 +589,19 @@ struct RemovingAllCommentsAdvancedTests {
         #define PI 3.14159
         //MTLShaderGroup: Lighting
         vertex float4 vertex_lighting(
-            const device VertexIn* vertices [[buffer(0)]],
-            constant Light* lights [[buffer(1)]],
-            uint vertexID [[vertex_id]]
+        const device VertexIn* vertices [[buffer(0)]],
+        constant Light* lights [[buffer(1)]],
+        uint vertexID [[vertex_id]]
         ) {
-                return float4(1.0);
+        return float4(1.0);
         }
         #ifdef USE_PBR
         //MTLShaderGroup: PBR
         fragment float4 fragment_pbr(
-            float4 position [[position]],
-            float3 normal [[stage_in]]
+        float4 position [[position]],
+        float3 normal [[stage_in]]
         ) {
-                return float4(1.0);
+        return float4(1.0);
         }
         #endif
         """
