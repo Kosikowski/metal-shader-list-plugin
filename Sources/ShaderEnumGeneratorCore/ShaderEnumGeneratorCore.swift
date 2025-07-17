@@ -10,6 +10,57 @@ import Foundation
 
 let shaderGroupCommentPrefix = "MTLShaderGroup:"
 
+// MARK: - Shader Group Validation
+
+/// Validates that a shader group name only contains A-Z and a-z characters
+/// - Parameter groupName: The shader group name to validate
+/// - Throws: Error if invalid
+private func validateShaderGroupName(_ groupName: String) throws {
+    let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Check for empty names
+    guard !trimmedName.isEmpty else {
+        throw NSError(domain: "ShaderEnumGenerator", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "Shader group name cannot be empty",
+        ])
+    }
+
+    // Check that name only contains A-Z and a-z characters
+    let validCharacters = CharacterSet.letters
+    let invalidCharacters = trimmedName.unicodeScalars.filter { !validCharacters.contains($0) }
+
+    if !invalidCharacters.isEmpty {
+        let invalidChar = String(invalidCharacters.first!)
+        throw NSError(domain: "ShaderEnumGenerator", code: 2, userInfo: [
+            NSLocalizedDescriptionKey: "Invalid shader group name '\(trimmedName)': Contains invalid character '\(invalidChar)'. Only A-Z and a-z characters are allowed",
+        ])
+    }
+}
+
+/// Extracts and validates shader group names from Metal shader source code
+/// - Parameter text: The Metal shader source code
+/// - Throws: Error if validation fails
+private func validateShaderGroupNames(in text: String) throws {
+    let lines = text.components(separatedBy: .newlines)
+
+    for (lineNumber, line) in lines.enumerated() {
+        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Look for MTLShaderGroup comments
+        if trimmedLine.hasPrefix("//MTLShaderGroup:") {
+            let groupName = trimmedLine.replacingOccurrences(of: "//MTLShaderGroup:", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+            do {
+                try validateShaderGroupName(groupName)
+            } catch {
+                throw NSError(domain: "ShaderEnumGenerator", code: 3, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid shader group name at line \(lineNumber + 1): \(error.localizedDescription)",
+                ])
+            }
+        }
+    }
+}
+
 // MARK: - ShaderGroup
 
 public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
@@ -63,6 +114,15 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 /// otherwise the function type (vertex|fragment|kernel|compute) is used as the group.
 /// Returns array of tuples: (group name string, function name string).
 public func parseShaderFunctions(from text: String) -> [(String, String)] {
+    // Validate shader group names first
+    do {
+        try validateShaderGroupNames(in: text)
+    } catch {
+        // Print error and exit with failure
+        print("Error: \(error.localizedDescription)")
+        exit(1)
+    }
+
     let text = removingAllComments(from: text)
     var results: [(String, String)] = []
     let functionPattern = #"(?m)^\s*(vertex|fragment|kernel|compute)\s+[^()]+\s+(\w+)\s*\("#
