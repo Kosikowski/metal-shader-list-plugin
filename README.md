@@ -36,7 +36,7 @@ Build your package. The plugin generates enums and extensions in `Generated/Your
 let shader = MyTargetMTLShaders.MTLFragmentShader.yourShaderFunctionNameHereAsEnumForTypeSafety
 let function = library.makeFunction(shader)
 ```
-or simply: 
+or simply:
 ```swift
 let function = library.makeFunction(.yourShaderFunctionNameHereAsEnumForTypeSafety)
 ```

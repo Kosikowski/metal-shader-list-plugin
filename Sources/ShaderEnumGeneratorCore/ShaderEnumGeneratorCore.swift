@@ -10,38 +10,49 @@ import Foundation
 
 let shaderGroupCommentPrefix = "MTLShaderGroup:"
 
+// MARK: - ShaderGroup
+
 public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
-    case vertex, fragment, kernel, compute, unknown
+    case vertex
+    case fragment
+    case kernel
+    case compute
+    case unknown
     case custom(String)
+
+    // MARK: Computed Properties
 
     public var description: String {
         switch self {
-        case .vertex: return "MTLVertexShader"
-        case .fragment: return "MTLFragmentShader"
-        case .kernel, .compute: return "MTLComputeShader"
-        case .unknown: return "MTLUnknownShader"
-        case let .custom(s): return s
+            case .vertex: return "MTLVertexShader"
+            case .fragment: return "MTLFragmentShader"
+            case .kernel,
+                 .compute: return "MTLComputeShader"
+            case .unknown: return "MTLUnknownShader"
+            case let .custom(s): return s
         }
     }
 
     public var raw: String {
         switch self {
-        case .vertex: return "vertex"
-        case .fragment: return "fragment"
-        case .kernel: return "kernel"
-        case .compute: return "compute"
-        case .unknown: return "unknown"
-        case let .custom(s): return s
+            case .vertex: return "vertex"
+            case .fragment: return "fragment"
+            case .kernel: return "kernel"
+            case .compute: return "compute"
+            case .unknown: return "unknown"
+            case let .custom(s): return s
         }
     }
 
+    // MARK: Static Functions
+
     public static func from(rawValue: String) -> ShaderGroup {
         switch rawValue.lowercased() {
-        case "vertex": return .vertex
-        case "fragment": return .fragment
-        case "kernel": return .kernel
-        case "compute": return .compute
-        default: return .custom(rawValue)
+            case "vertex": return .vertex
+            case "fragment": return .fragment
+            case "kernel": return .kernel
+            case "compute": return .compute
+            default: return .custom(rawValue)
         }
     }
 }
@@ -57,8 +68,9 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     let functionPattern = #"(?m)^\s*(vertex|fragment|kernel|compute)\s+[^()]+\s+(\w+)\s*\("#
     let commentPattern = "//" + shaderGroupCommentPrefix + #"\s*([A-Za-z_][A-Za-z0-9_]*)"#
 
-    guard let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
-          let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: [])
+    guard
+        let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
+        let commentRegex = try? NSRegularExpression(pattern: commentPattern, options: [])
     else {
         return results
     }
@@ -69,8 +81,9 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     // Collect all comment matches with their line number and group string
     var commentPositions: [(line: Int, group: String)] = []
     for (idx, line) in lines.enumerated() {
-        if let match = commentRegex.firstMatch(in: line, options: [], range: NSRange(line.startIndex ..< line.endIndex, in: line)),
-           let groupRange = Range(match.range(at: 1), in: line)
+        if
+            let match = commentRegex.firstMatch(in: line, options: [], range: NSRange(line.startIndex ..< line.endIndex, in: line)),
+            let groupRange = Range(match.range(at: 1), in: line)
         {
             let groupStr = String(line[groupRange])
             commentPositions.append((line: idx, group: groupStr))
@@ -83,7 +96,7 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
         var count = 0
         var idx = text.startIndex
         var pos = 0
-        while idx < text.endIndex && pos < position {
+        while idx < text.endIndex, pos < position {
             if text[idx] == "\n" {
                 count += 1
             }
@@ -98,9 +111,10 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     let matches = functionRegex.matches(in: text, options: [], range: fullRange)
 
     for match in matches {
-        guard match.numberOfRanges >= 3,
-              let typeRange = Range(match.range(at: 1), in: text),
-              let nameRange = Range(match.range(at: 2), in: text)
+        guard
+            match.numberOfRanges >= 3,
+            let typeRange = Range(match.range(at: 1), in: text),
+            let nameRange = Range(match.range(at: 2), in: text)
         else {
             continue
         }
@@ -182,7 +196,7 @@ func removingAllComments(from text: String) -> String {
     func isRemovableFullLineComment(at idx: String.Index) -> Bool {
         // Find the start of the line
         var lineStart = idx
-        while lineStart > text.startIndex && text[text.index(before: lineStart)] != "\n" {
+        while lineStart > text.startIndex, text[text.index(before: lineStart)] != "\n" {
             lineStart = text.index(before: lineStart)
         }
         // Skip whitespace
@@ -191,14 +205,14 @@ func removingAllComments(from text: String) -> String {
             scan = text.index(after: scan)
         }
         // Check for // or ///
-        if scan < end && text[scan] == "/" {
+        if scan < end, text[scan] == "/" {
             let next = text.index(after: scan)
-            if next < end && text[next] == "/" {
+            if next < end, text[next] == "/" {
                 // Check if this is a shader group comment
                 let afterSlashes = text.index(next, offsetBy: 1, limitedBy: end) ?? end
                 let groupPrefix = "MTLShaderGroup:"
                 if afterSlashes < end {
-                    let remaining = text[afterSlashes..<end]
+                    let remaining = text[afterSlashes ..< end]
                     if remaining.trimmingCharacters(in: .whitespaces).hasPrefix(groupPrefix) {
                         return false // It's a shader group comment, do not remove
                     }
@@ -226,14 +240,14 @@ func removingAllComments(from text: String) -> String {
             continue // Skip all other characters in the comment
         } else if inBlockComment {
             // If inside a block comment, look specifically for the closing '*/'
-            if c == "*" && nextChar == "/" {
+            if c == "*", nextChar == "/" {
                 inBlockComment = false // Exiting block comment
                 // Skip all consecutive '*/' sequences
                 var idx = text.index(i, offsetBy: 2, limitedBy: end) ?? end
                 while idx < end {
                     let nextStar = idx < end ? text[idx] : nil
                     let nextSlash = (idx < end && text.index(after: idx) < end) ? text[text.index(after: idx)] : nil
-                    if nextStar == "*" && nextSlash == "/" {
+                    if nextStar == "*", nextSlash == "/" {
                         idx = text.index(idx, offsetBy: 2, limitedBy: end) ?? end
                     } else {
                         break
@@ -250,7 +264,7 @@ func removingAllComments(from text: String) -> String {
             // If in a string literal, always append the character
             output.append(c)
             // Only exit string if the delimiter (single/double quote) is found and not escaped
-            if c == stringDelimiter && prevChar != "\\" {
+            if c == stringDelimiter, prevChar != "\\" {
                 inString = false
                 stringDelimiter = nil
             }
@@ -261,7 +275,7 @@ func removingAllComments(from text: String) -> String {
             // Not in comment or string: check for new string, comment, or regular code
 
             // Start of a string literal (single or double quote)
-            if (c == "\"" || c == "'") {
+            if c == "\"" || c == "'" {
                 inString = true
                 stringDelimiter = c
                 output.append(c)
@@ -270,16 +284,16 @@ func removingAllComments(from text: String) -> String {
                 continue
             }
             // Start of a line comment ('//'), but not inside a string or block comment
-            if c == "/" && nextChar == "/" {
+            if c == "/", nextChar == "/" {
                 // Check if this is a removable full-line comment (not a shader group comment)
                 if isRemovableFullLineComment(at: i) {
                     // Skip to the next newline (remove the whole line)
                     var skipIdx = i
-                    while skipIdx < end && text[skipIdx] != "\n" {
+                    while skipIdx < end, text[skipIdx] != "\n" {
                         skipIdx = text.index(after: skipIdx)
                     }
                     // If we stopped at a newline, skip it too
-                    if skipIdx < end && text[skipIdx] == "\n" {
+                    if skipIdx < end, text[skipIdx] == "\n" {
                         skipIdx = text.index(after: skipIdx)
                     }
                     i = skipIdx
@@ -291,17 +305,17 @@ func removingAllComments(from text: String) -> String {
                 let commentStartIndex = text.index(i, offsetBy: 2, limitedBy: end) ?? end
                 // Extract substring from commentStartIndex to next newline or end of text
                 var commentEndIndex = commentStartIndex
-                while commentEndIndex < end && text[commentEndIndex] != "\n" {
+                while commentEndIndex < end, text[commentEndIndex] != "\n" {
                     commentEndIndex = text.index(after: commentEndIndex)
                 }
-                let commentContent = text[commentStartIndex..<commentEndIndex]
+                let commentContent = text[commentStartIndex ..< commentEndIndex]
                 let commentString = commentContent.trimmingCharacters(in: .whitespaces)
                 if commentString.hasPrefix(shaderGroupCommentPrefix) {
                     // Append entire comment line including "//"
                     output.append("//")
                     output.append(contentsOf: commentString)
                     // Append newline if present
-                    if commentEndIndex < end && text[commentEndIndex] == "\n" {
+                    if commentEndIndex < end, text[commentEndIndex] == "\n" {
                         output.append("\n")
                         i = text.index(after: commentEndIndex)
                     } else {
@@ -319,7 +333,7 @@ func removingAllComments(from text: String) -> String {
                 }
             }
             // Start of a block comment ('/* ... */')
-            if c == "/" && nextChar == "*" {
+            if c == "/", nextChar == "*" {
                 inBlockComment = true
                 // Skip both '/' and '*' characters
                 i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
@@ -338,4 +352,3 @@ func removingAllComments(from text: String) -> String {
     let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
     return nonEmptyLines.joined(separator: "\n")
 }
-
