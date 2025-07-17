@@ -889,10 +889,13 @@ struct ShaderEnumGeneratorPerformanceTests {
         var metalSource = ""
         let groupCount = 50
 
-        // Generate many custom groups
+        // Generate many custom groups with valid names
+        let groupNames = ["Lighting", "Rendering", "PostProcessing", "Effects", "Utilities", "Core", "Advanced", "Basic", "Complex", "Simple"]
+
         for i in 0 ..< groupCount {
+            let groupName = groupNames[i % groupNames.count] + String(Character(UnicodeScalar(65 + (i % 26))!)) // A-Z
             metalSource += """
-            //MTLShaderGroup: CustomGroup\(i)
+            //MTLShaderGroup: \(groupName)
             vertex float4 vertex_group\(i)() { return float4(1); }
             fragment float4 fragment_group\(i)() { return float4(1); }
 
