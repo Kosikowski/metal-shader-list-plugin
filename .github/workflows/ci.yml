@@ -257,7 +257,7 @@ jobs:
       run: swift package describe
 
     - name: Validate package structure
-      run: swift package validate
+      run: swift package diagnose
 
     - name: Check for unused dependencies
       run: swift package show-dependencies
