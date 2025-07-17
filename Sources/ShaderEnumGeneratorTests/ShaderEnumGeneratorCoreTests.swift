@@ -424,3 +424,483 @@ struct ShaderEnumGeneratorCoreExtensionTests {
     }
     
 }
+
+@Suite("ShaderEnumGeneratorCore - Complex Shader Function Signatures")
+struct ShaderEnumGeneratorComplexSignatureTests {
+    
+    @Test("Parses complex vertex shader with multiple parameters and attributes")
+    func testComplexVertexShaderSignature() async throws {
+        let metalSource = """
+        vertex VertexOut vertex_main(
+            const device VertexIn* vertices [[buffer(0)]],
+            constant Uniforms& uniforms [[buffer(1)]],
+            uint vertexID [[vertex_id]],
+            uint instanceID [[instance_id]]
+        ) {
+            return VertexOut();
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_main")
+    }
+    
+    @Test("Parses fragment shader with texture and sampler parameters")
+    func testFragmentShaderWithTextures() async throws {
+        let metalSource = """
+        fragment float4 fragment_main(
+            VertexOut in [[stage_in]],
+            texture2d<float> diffuseTexture [[texture(0)]],
+            sampler diffuseSampler [[sampler(0)]],
+            constant Uniforms& uniforms [[buffer(0)]]
+        ) {
+            return float4(1.0);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "fragment")
+        #expect(functions[0].1 == "fragment_main")
+    }
+    
+    @Test("Parses compute shader with threadgroup parameters")
+    func testComputeShaderWithThreadgroups() async throws {
+        let metalSource = """
+        kernel void compute_main(
+            device float* output [[buffer(0)]],
+            device const float* input [[buffer(1)]],
+            constant uint& count [[buffer(2)]],
+            uint3 thread_position_in_grid [[thread_position_in_grid]],
+            uint3 thread_position_in_threadgroup [[thread_position_in_threadgroup]],
+            uint3 threadgroup_position_in_grid [[threadgroup_position_in_grid]]
+        ) {
+            // Compute logic
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "kernel")
+        #expect(functions[0].1 == "compute_main")
+    }
+    
+    @Test("Parses shader with template parameters")
+    func testShaderWithTemplateParameters() async throws {
+        let metalSource = """
+        template<typename T>
+        vertex T vertex_template(
+            const device T* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]]
+        ) {
+            return vertices[vertexID];
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_template")
+    }
+    
+    @Test("Parses shader with complex return type")
+    func testShaderWithComplexReturnType() async throws {
+        let metalSource = """
+        vertex VertexOut<MetalVertexFormat> vertex_complex(
+            const device VertexIn* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]]
+        ) {
+            return VertexOut<MetalVertexFormat>();
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_complex")
+    }
+    
+    @Test("Parses multiple functions in same group")
+    func testMultipleFunctionsInSameGroup() async throws {
+        let metalSource = """
+        //MTLShaderGroup: Lighting
+        vertex float4 vertex_ambient() { return float4(1); }
+        vertex float4 vertex_diffuse() { return float4(1); }
+        vertex float4 vertex_specular() { return float4(1); }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 3)
+        #expect(functions.allSatisfy { $0.0 == "Lighting" })
+        #expect(functions.map { $0.1 }.sorted() == ["vertex_ambient", "vertex_diffuse", "vertex_specular"])
+    }
+    
+    @Test("Handles shader functions with qualifiers and attributes")
+    func testShaderWithQualifiersAndAttributes() async throws {
+        let metalSource = """
+        [[visible]]
+        vertex float4 vertex_visible(
+            const device VertexIn* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]]
+        ) {
+            return float4(1);
+        }
+        
+        [[patch(patch_control_point_count)]]
+        vertex float4 vertex_patch(
+            patch_control_point<VertexIn> control_points [[patch_control_point]],
+            uint patchID [[patch_id]]
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        #expect(functions.contains(where: { $0.1 == "vertex_visible" }))
+        #expect(functions.contains(where: { $0.1 == "vertex_patch" }))
+    }
+}
+
+@Suite("ShaderEnumGeneratorCore - Real-world Metal Shader Examples")
+struct ShaderEnumGeneratorRealWorldTests {
+    
+    @Test("Parses complete Metal rendering pipeline shaders")
+    func testCompleteRenderingPipeline() async throws {
+        let metalSource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        
+        struct VertexIn {
+            float4 position [[attribute(0)]];
+            float2 texCoord [[attribute(1)]];
+        };
+        
+        struct VertexOut {
+            float4 position [[position]];
+            float2 texCoord;
+        };
+        
+        struct Uniforms {
+            float4x4 mvp;
+        };
+        
+        //MTLShaderGroup: BasicRendering
+        vertex VertexOut vertex_basic(
+            const device VertexIn* vertices [[buffer(0)]],
+            constant Uniforms& uniforms [[buffer(1)]],
+            uint vertexID [[vertex_id]]
+        ) {
+            VertexOut out;
+            out.position = uniforms.mvp * vertices[vertexID].position;
+            out.texCoord = vertices[vertexID].texCoord;
+            return out;
+        }
+        
+        fragment float4 fragment_basic(
+            VertexOut in [[stage_in]],
+            texture2d<float> diffuseTexture [[texture(0)]],
+            sampler diffuseSampler [[sampler(0)]]
+        ) {
+            return diffuseTexture.sample(diffuseSampler, in.texCoord);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "vertex_basic" }))
+        #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "fragment_basic" }))
+    }
+    
+    @Test("Parses compute shader for image processing")
+    func testImageProcessingComputeShader() async throws {
+        let metalSource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        
+        //MTLShaderGroup: ImageProcessing
+        kernel void gaussian_blur_1d(
+            texture2d<float, access::read> inputTexture [[texture(0)]],
+            texture2d<float, access::write> outputTexture [[texture(1)]],
+            constant float& sigma [[buffer(0)]],
+            uint2 position [[thread_position_in_grid]]
+        ) {
+            // Gaussian blur implementation
+        }
+        
+        kernel void sobel_edge_detection(
+            texture2d<float, access::read> inputTexture [[texture(0)]],
+            texture2d<float, access::write> outputTexture [[texture(1)]],
+            uint2 position [[thread_position_in_grid]]
+        ) {
+            // Sobel edge detection
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        #expect(functions.allSatisfy { $0.0 == "ImageProcessing" })
+        #expect(functions.contains(where: { $0.1 == "gaussian_blur_1d" }))
+        #expect(functions.contains(where: { $0.1 == "sobel_edge_detection" }))
+    }
+    
+    @Test("Parses tessellation shaders")
+    func testTessellationShaders() async throws {
+        let metalSource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        
+        //MTLShaderGroup: Tessellation
+        [[patch(patch_control_point_count)]]
+        vertex float4 tessellation_vertex(
+            patch_control_point<VertexIn> control_points [[patch_control_point]],
+            uint patchID [[patch_id]]
+        ) {
+            return float4(1);
+        }
+        
+        [[patch(patch_control_point_count)]]
+        vertex float4 tessellation_vertex_post(
+            patch_control_point<VertexIn> control_points [[patch_control_point]],
+            uint patchID [[patch_id]]
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        #expect(functions.allSatisfy { $0.0 == "Tessellation" })
+        #expect(functions.contains(where: { $0.1 == "tessellation_vertex" }))
+        #expect(functions.contains(where: { $0.1 == "tessellation_vertex_post" }))
+    }
+    
+    @Test("Parses ray tracing shaders")
+    func testRayTracingShaders() async throws {
+        let metalSource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        
+        //MTLShaderGroup: RayTracing
+        [[visible]]
+        vertex float4 ray_generation_vertex(
+            const device VertexIn* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]]
+        ) {
+            return float4(1);
+        }
+        
+        [[visible]]
+        fragment float4 ray_generation_fragment(
+            float4 position [[position]],
+            float2 texCoord [[stage_in]]
+        ) {
+            return float4(1);
+        }
+        
+        [[visible]]
+        kernel void ray_intersection(
+            device RayPayload* payload [[buffer(0)]],
+            uint rayID [[thread_position_in_grid]]
+        ) {
+            // Ray intersection logic
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 3)
+        #expect(functions.allSatisfy { $0.0 == "RayTracing" })
+        #expect(functions.contains(where: { $0.1 == "ray_generation_vertex" }))
+        #expect(functions.contains(where: { $0.1 == "ray_generation_fragment" }))
+        #expect(functions.contains(where: { $0.1 == "ray_intersection" }))
+    }
+}
+
+@Suite("ShaderEnumGeneratorCore - Edge Cases and Error Handling")
+struct ShaderEnumGeneratorEdgeCaseTests {
+    
+    @Test("Handles malformed function declarations gracefully")
+    func testMalformedFunctionDeclarations() async throws {
+        let metalSource = """
+        vertex // missing return type and function name
+        fragment float4 // missing function name
+        kernel void // missing function name and parameters
+        compute // incomplete declaration
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.isEmpty)
+    }
+    
+    @Test("Handles nested function declarations")
+    func testNestedFunctionDeclarations() async throws {
+        let metalSource = """
+        vertex float4 outer_function() {
+            void inner_function() {
+                // This should not be parsed as a shader function
+            }
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "outer_function")
+    }
+    
+    @Test("Handles function-like macros")
+    func testFunctionLikeMacros() async throws {
+        let metalSource = """
+        #define VERTEX_FUNC(name) vertex float4 name() { return float4(1); }
+        VERTEX_FUNC(macro_generated)
+        
+        vertex float4 real_function() { return float4(1); }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "real_function")
+    }
+    
+    @Test("Handles shader functions with default parameters")
+    func testShaderWithDefaultParameters() async throws {
+        let metalSource = """
+        vertex float4 vertex_with_defaults(
+            const device VertexIn* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]] = 0
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_with_defaults")
+    }
+    
+    @Test("Handles shader functions with variadic parameters")
+    func testShaderWithVariadicParameters() async throws {
+        let metalSource = """
+        vertex float4 vertex_variadic(
+            const device VertexIn* vertices [[buffer(0)]],
+            uint vertexID [[vertex_id]],
+            ...
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_variadic")
+    }
+    
+    @Test("Handles shader functions with constexpr parameters")
+    func testShaderWithConstexprParameters() async throws {
+        let metalSource = """
+        vertex float4 vertex_constexpr(
+            const device VertexIn* vertices [[buffer(0)]],
+            constexpr uint bufferIndex = 0
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_constexpr")
+    }
+    
+    @Test("Handles shader functions with reference parameters")
+    func testShaderWithReferenceParameters() async throws {
+        let metalSource = """
+        vertex float4 vertex_reference(
+            const device VertexIn& vertex [[buffer(0)]],
+            constant Uniforms& uniforms [[buffer(1)]]
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_reference")
+    }
+    
+    @Test("Handles shader functions with pointer parameters")
+    func testShaderWithPointerParameters() async throws {
+        let metalSource = """
+        vertex float4 vertex_pointer(
+            const device VertexIn* vertices [[buffer(0)]],
+            device float* output [[buffer(1)]]
+        ) {
+            return float4(1);
+        }
+        """
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_pointer")
+    }
+}
+
+@Suite("ShaderEnumGeneratorCore - Performance and Large Files")
+struct ShaderEnumGeneratorPerformanceTests {
+    
+    @Test("Handles large shader file with many functions")
+    func testLargeShaderFile() async throws {
+        var metalSource = ""
+        let functionCount = 100
+        
+        // Generate many shader functions
+        for i in 0..<functionCount {
+            metalSource += """
+            vertex float4 vertex_\(i)(
+                const device VertexIn* vertices [[buffer(0)]],
+                uint vertexID [[vertex_id]]
+            ) {
+                return float4(1);
+            }
+            
+            fragment float4 fragment_\(i)(
+                float4 position [[position]]
+            ) {
+                return float4(1);
+            }
+            
+            """
+        }
+        
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == functionCount * 2)
+        
+        // Test enum generation with many functions
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (groupName, funcName) in functions {
+            grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
+        }
+        
+        let code = generateShaderEnums(functionsByType: grouped, moduleName: "LargeTest")
+        #expect(!code.isEmpty)
+        #expect(code.contains("LargeTestMTLShaders"))
+    }
+    
+    @Test("Handles shader file with many custom groups")
+    func testManyCustomGroups() async throws {
+        var metalSource = ""
+        let groupCount = 50
+        
+        // Generate many custom groups
+        for i in 0..<groupCount {
+            metalSource += """
+            //MTLShaderGroup: CustomGroup\(i)
+            vertex float4 vertex_group\(i)() { return float4(1); }
+            fragment float4 fragment_group\(i)() { return float4(1); }
+            
+            """
+        }
+        
+        let functions = parseShaderFunctions(from: metalSource)
+        #expect(functions.count == groupCount * 2)
+        
+        // Test enum generation with many custom groups
+        var grouped: [ShaderGroup: Set<String>] = [:]
+        for (groupName, funcName) in functions {
+            grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
+        }
+        
+        let code = generateShaderEnums(functionsByType: grouped, moduleName: "ManyGroups")
+        #expect(!code.isEmpty)
+        #expect(code.contains("ManyGroupsMTLShaders"))
+    }
+}

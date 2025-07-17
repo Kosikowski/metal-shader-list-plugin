@@ -54,7 +54,7 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 public func parseShaderFunctions(from text: String) -> [(String, String)] {
     let text = removingAllComments(from: text)
     var results: [(String, String)] = []
-    let functionPattern = #"\b(vertex|fragment|kernel|compute)\s+\w+\s+(\w+)\s*\("#
+    let functionPattern = #"(?m)^\s*(vertex|fragment|kernel|compute)\s+[^()]+\s+(\w+)\s*\("#
     let commentPattern = "//" + shaderGroupCommentPrefix + #"\s*([A-Za-z_][A-Za-z0-9_]*)"#
 
     guard let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
@@ -178,6 +178,38 @@ func removingAllComments(from text: String) -> String {
     var inBlockComment = false // True if inside a block comment (/* */)
     var prevChar: Character? = nil // Tracks previous character (for escaped strings)
 
+    // Helper: Check if a line comment starts at the first non-whitespace character and is NOT a shader group comment
+    func isRemovableFullLineComment(at idx: String.Index) -> Bool {
+        // Find the start of the line
+        var lineStart = idx
+        while lineStart > text.startIndex && text[text.index(before: lineStart)] != "\n" {
+            lineStart = text.index(before: lineStart)
+        }
+        // Skip whitespace
+        var scan = lineStart
+        while scan < end, text[scan].isWhitespace, text[scan] != "\n" {
+            scan = text.index(after: scan)
+        }
+        // Check for // or ///
+        if scan < end && text[scan] == "/" {
+            let next = text.index(after: scan)
+            if next < end && text[next] == "/" {
+                // Check if this is a shader group comment
+                let afterSlashes = text.index(next, offsetBy: 1, limitedBy: end) ?? end
+                let groupPrefix = "MTLShaderGroup:"
+                if afterSlashes < end {
+                    let remaining = text[afterSlashes..<end]
+                    if remaining.trimmingCharacters(in: .whitespaces).hasPrefix(groupPrefix) {
+                        return false // It's a shader group comment, do not remove
+                    }
+                }
+                // It's a removable full-line comment
+                return scan == idx
+            }
+        }
+        return false
+    }
+
     // Iterate through the entire string character by character
     while i < end {
         let c = text[i] // Current character
@@ -196,8 +228,18 @@ func removingAllComments(from text: String) -> String {
             // If inside a block comment, look specifically for the closing '*/'
             if c == "*" && nextChar == "/" {
                 inBlockComment = false // Exiting block comment
-                // Skip both '*' and '/'
-                i = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                // Skip all consecutive '*/' sequences
+                var idx = text.index(i, offsetBy: 2, limitedBy: end) ?? end
+                while idx < end {
+                    let nextStar = idx < end ? text[idx] : nil
+                    let nextSlash = (idx < end && text.index(after: idx) < end) ? text[text.index(after: idx)] : nil
+                    if nextStar == "*" && nextSlash == "/" {
+                        idx = text.index(idx, offsetBy: 2, limitedBy: end) ?? end
+                    } else {
+                        break
+                    }
+                }
+                i = idx
                 prevChar = nil
                 continue
             }
@@ -229,6 +271,21 @@ func removingAllComments(from text: String) -> String {
             }
             // Start of a line comment ('//'), but not inside a string or block comment
             if c == "/" && nextChar == "/" {
+                // Check if this is a removable full-line comment (not a shader group comment)
+                if isRemovableFullLineComment(at: i) {
+                    // Skip to the next newline (remove the whole line)
+                    var skipIdx = i
+                    while skipIdx < end && text[skipIdx] != "\n" {
+                        skipIdx = text.index(after: skipIdx)
+                    }
+                    // If we stopped at a newline, skip it too
+                    if skipIdx < end && text[skipIdx] == "\n" {
+                        skipIdx = text.index(after: skipIdx)
+                    }
+                    i = skipIdx
+                    prevChar = nil
+                    continue
+                }
                 // Check if this comment is a shader group comment
                 // Look ahead to see if after "//" is "MTLShaderGroup:" or " MTLShaderGroup:"
                 let commentStartIndex = text.index(i, offsetBy: 2, limitedBy: end) ?? end
@@ -276,6 +333,9 @@ func removingAllComments(from text: String) -> String {
         }
     }
     // When finished, 'output' contains all code with comments removed
-    return output
+    // Remove all empty lines (lines containing only whitespace)
+    let lines = output.components(separatedBy: .newlines)
+    let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    return nonEmptyLines.joined(separator: "\n")
 }
 
