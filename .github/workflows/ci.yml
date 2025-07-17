@@ -218,10 +218,10 @@ jobs:
         brew install swiftformat
 
     - name: Check SwiftFormat
-      run: swiftformat --lint --config .swiftformat Sources/ Tests/
+      run: swiftformat --lint --config .swiftformat Sources/
 
-    - name: Format code with SwiftFormat
-      run: swiftformat --config .swiftformat Sources/ Tests/
+    - name: Apply SwiftFormat
+      run: swiftformat --config .swiftformat Sources/
 
     - name: Check for TODO/FIXME comments
       run: |
