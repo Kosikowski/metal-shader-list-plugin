@@ -1,0 +1,373 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  # macOS and Apple Platforms
+  build-macos:
+    runs-on: ${{ matrix.runner }}
+    name: macOS (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        include:
+          - swift-version: 6.1.2
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+      - name: Install Swift ${{ matrix.swift-version }}
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Show versions
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Clean build directory
+        run: rm -rf .build
+      - name: Build and Test
+        run: |
+          swift build -v
+          swift test -v
+
+  build-ios:
+    runs-on: ${{ matrix.runner }}
+    name: iOS (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        include:
+          - swift-version: 6.1.2
+            runner: macos-latest
+            use_xcodebuild: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+      - name: Install Swift ${{ matrix.swift-version }}
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Clean build directory
+        run: rm -rf .build
+      - name: Build and Test (SwiftPM)
+        run: |
+          swift build -v
+          swift test -v
+
+  build-tvos:
+    runs-on: ${{ matrix.runner }}
+    name: tvOS (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        include:
+          - swift-version: 6.1.2
+            runner: macos-latest
+            use_xcodebuild: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+      - name: Install Swift ${{ matrix.swift-version }}
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Clean build directory
+        run: rm -rf .build
+      - name: Build and Test (SwiftPM)
+        run: |
+          swift build -v
+          swift test -v
+
+  build-visionos:
+    runs-on: ${{ matrix.runner }}
+    name: visionOS (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        include:
+          - swift-version: 6.1.2
+            runner: macos-latest
+            use_xcodebuild: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+      - name: Install Swift ${{ matrix.swift-version }}
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Clean build directory
+        run: rm -rf .build
+      - name: Build and Test (SwiftPM)
+        run: |
+          swift build -v
+          swift test -v
+
+  # Linux
+  build-linux:
+    runs-on: ubuntu-22.04
+    name: Linux (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        swift-version: [6.1.2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Show Swift version
+        run: swift --version
+      - name: Build and Test
+        run: |
+          swift build -v
+          swift test -v
+
+  build-linux-release:
+    runs-on: ubuntu-22.04
+    name: Linux Release (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        swift-version: [6.1.2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Show Swift version
+        run: swift --version
+      - name: Build and Test Release
+        run: |
+          swift build -c release -v
+          swift test -c release -v
+
+  # Windows
+  build-windows:
+    runs-on: windows-latest
+    name: Windows (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        swift-version: [6.1.2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Show Swift version
+        run: swift --version
+      - name: Build and Test
+        run: |
+          swift build -v
+          swift test -v
+
+  build-windows-release:
+    runs-on: windows-latest
+    name: Windows Release (Swift ${{ matrix.swift-version }})
+    strategy:
+      matrix:
+        swift-version: [6.1.2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Show Swift version
+        run: swift --version
+      - name: Build and Test Release
+        run: |
+          swift build -c release -v
+          swift test -c release -v
+
+  # Code Quality (macOS only)
+  code-quality:
+    name: Code Quality
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: SwiftyLab/setup-swift@v1
+      with:
+        swift-version: '6.1.2'
+
+    - name: Install SwiftFormat
+      run: |
+        brew install swiftformat
+
+    - name: Check SwiftFormat
+      run: swiftformat --lint --config .swiftformat Sources/
+
+    - name: Apply SwiftFormat
+      run: swiftformat --config .swiftformat Sources/
+
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "Checking for TODO/FIXME comments..."
+        if grep -r "TODO\|FIXME" Sources/ Tests/ --exclude-dir=.build; then
+          echo "Found TODO/FIXME comments. Please address them before merging."
+          exit 1
+        fi
+
+    - name: Check for debug print statements
+      run: |
+        echo "Checking for debug print statements..."
+        if grep -r "print(" Sources/ Tests/ --exclude-dir=.build | grep -v "//.*print("; then
+          echo "Found print statements. Please remove them before merging."
+          exit 1
+        fi
+
+  # Package Validation
+  package-validation:
+    name: Package Validation
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: SwiftyLab/setup-swift@v1
+      with:
+        swift-version: '6.1.2'
+
+    - name: Check package description
+      run: swift package describe
+
+    - name: Validate package structure
+      run: swift package dump-package
+
+    - name: Check for unused dependencies
+      run: swift package show-dependencies
+
+  # Release job - only runs on tag pushes
+  release:
+    name: Create Release
+    runs-on: macos-14
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-ios, build-tvos, build-visionos, build-linux, build-linux-release, build-windows, build-windows-release, code-quality, package-validation]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '16'
+
+    - name: Generate Release Notes
+      id: release_notes
+      run: |
+        # Get the current tag version
+        CURRENT_TAG="${{ github.ref_name }}"
+        echo "Current tag: $CURRENT_TAG"
+
+        # Get the previous tag (if any)
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        echo "Previous tag: $PREVIOUS_TAG"
+
+        # Generate commit list
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating release notes from $PREVIOUS_TAG to $CURRENT_TAG"
+          COMMITS=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD --no-merges)
+        else
+          echo "First release, generating release notes from all commits"
+          COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+        fi
+
+        # Categorize commits
+        FEATURES=$(echo "$COMMITS" | grep -i "feat\|add\|implement\|new" || echo "")
+        FIXES=$(echo "$COMMITS" | grep -i "fix\|bug\|issue\|error" || echo "")
+        IMPROVEMENTS=$(echo "$COMMITS" | grep -i "improve\|enhance\|optimize\|refactor" || echo "")
+        DOCS=$(echo "$COMMITS" | grep -i "doc\|readme\|comment" || echo "")
+        CI=$(echo "$COMMITS" | grep -i "ci\|workflow\|github\|action" || echo "")
+        OTHER=$(echo "$COMMITS" | grep -v -i "feat\|add\|implement\|new\|fix\|bug\|issue\|error\|improve\|enhance\|optimize\|refactor\|doc\|readme\|comment\|ci\|workflow\|github\|action" || echo "")
+
+        # Build release notes
+        RELEASE_NOTES="## What's Changed in $CURRENT_TAG\n\n"
+
+        if [ -n "$FEATURES" ]; then
+          RELEASE_NOTES+="### 🚀 New Features\n$FEATURES\n\n"
+        fi
+
+        if [ -n "$FIXES" ]; then
+          RELEASE_NOTES+="### 🐛 Bug Fixes\n$FIXES\n\n"
+        fi
+
+        if [ -n "$IMPROVEMENTS" ]; then
+          RELEASE_NOTES+="### ⚡ Improvements\n$IMPROVEMENTS\n\n"
+        fi
+
+        if [ -n "$DOCS" ]; then
+          RELEASE_NOTES+="### 📚 Documentation\n$DOCS\n\n"
+        fi
+
+        if [ -n "$CI" ]; then
+          RELEASE_NOTES+="### 🔧 CI/CD\n$CI\n\n"
+        fi
+
+        if [ -n "$OTHER" ]; then
+          RELEASE_NOTES+="### 🔄 Other Changes\n$OTHER\n\n"
+        fi
+
+        RELEASE_NOTES+="## Installation\n\n"
+        RELEASE_NOTES+="\`\`\`swift\n"
+        RELEASE_NOTES+=".package(url: \"https://github.com/Kosikowski/metal-shader-list-plugin.git\", from: \"$CURRENT_TAG\")\n"
+        RELEASE_NOTES+="\`\`\`\n\n"
+        RELEASE_NOTES+="## Usage\n\n"
+        RELEASE_NOTES+="\`\`\`swift\n"
+        RELEASE_NOTES+="import ShaderEnumGeneratorCore\n\n"
+        RELEASE_NOTES+="// Parse Metal shader files and generate Swift enums\n"
+        RELEASE_NOTES+="let functions = parseShaderFunctions(from: shaderSource)\n"
+        RELEASE_NOTES+="\`\`\`\n\n"
+        RELEASE_NOTES+="## Shader Group Validation\n\n"
+        RELEASE_NOTES+="Shader group names must contain only **A-Z and a-z characters**:\n\n"
+        RELEASE_NOTES+="**Valid:** \`Lighting\`, \`Rendering\`, \`PostProcessing\`\n"
+        RELEASE_NOTES+="**Invalid:** \`Lighting-3D\`, \`Post_Processing\`, \`123Invalid\`\n\n"
+        RELEASE_NOTES+="---\n\n"
+        RELEASE_NOTES+="*Generated automatically from commit history*"
+
+        # Escape for GitHub Actions
+        RELEASE_NOTES="${RELEASE_NOTES//'%'/'%25'}"
+        RELEASE_NOTES="${RELEASE_NOTES//$'\n'/'%0A'}"
+        RELEASE_NOTES="${RELEASE_NOTES//$'\r'/'%0D'}"
+
+        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+        echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: ${{ steps.release_notes.outputs.release_notes }}
+        draft: false
+        prerelease: false

@@ -10,6 +10,15 @@ import Foundation
 import ShaderEnumGeneratorCore
 
 struct ShaderEnumGenerator: ParsableCommand {
+    // MARK: Static Properties
+
+    static var configuration = CommandConfiguration(
+        commandName: "ShaderEnumGenerator",
+        abstract: "Generates a Swift enum source file from Metal shader function declarations."
+    )
+
+    // MARK: Properties
+
     @Argument(help: "Input Metal shader files.")
     var inputFiles: [String]
 
@@ -19,10 +28,7 @@ struct ShaderEnumGenerator: ParsableCommand {
     @Option(name: .shortAndLong, help: "Swift module name.")
     var moduleName: String = "ShaderEnumGenerator"
 
-    static var configuration = CommandConfiguration(
-        commandName: "ShaderEnumGenerator",
-        abstract: "Generates a Swift enum source file from Metal shader function declarations."
-    )
+    // MARK: Functions
 
     func run() throws {
         var functionsByType: [ShaderGroup: Set<String>] = [:]

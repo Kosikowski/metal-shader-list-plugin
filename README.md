@@ -4,7 +4,7 @@ Generate Swift enums from your Metal shader functions — automatically!
 
 ## What does this plugin do?
 
-ShaderListPlugin is a Swift Package Plugin that scans your target’s `.metal` shader source files, parses all top-level Metal shader functions, and generates type-safe Swift enums for you to access those shaders in your code. No more hardcoding shader function names as strings, or copy–pasting boilerplate! All shader functions are grouped by type (vertex, fragment, kernel, compute) or by custom group comments in your Metal source. Each enum also gets a convenience extension for `MTLLibrary`.
+ShaderListPlugin is a Swift Package Plugin that scans your target's `.metal` shader source files, parses all top-level Metal shader functions, and generates type-safe Swift enums for you to access those shaders in your code. No more hardcoding shader function names as strings, or copy–pasting boilerplate! All shader functions are grouped by type (vertex, fragment, kernel, compute) or by custom group comments in your Metal source. Each enum also gets a convenience extension for `MTLLibrary`.
 
 # How to Use
 
@@ -13,7 +13,7 @@ ShaderListPlugin is a Swift Package Plugin that scans your target’s `.metal` s
 ### Add ShaderListPlugin to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/your-org/ShaderListPlugin.git", from: "1.0.0")
+.package(url: "https://github.com/Kosikowski/metal-shader-list-plugin.git", from: "1.0.0")
 ```
 
 ### Add the plugin to your project and target:
@@ -28,15 +28,15 @@ ShaderListPlugin is a Swift Package Plugin that scans your target’s `.metal` s
 )
 ```
 
-Place your `.metal` files in your target’s sources.
+Place your `.metal` files in your target's sources.
 
 Build your package. The plugin generates enums and extensions in `Generated/YourTargetShaderEnums.generated.swift` under the plugin work directory. Use them directly in your code:
 
 ```swift
-let shader = MyTargetMTLShaders.MTLFragmentShader.yourShaderFunctionNameHereAsEnumForTypeSafety
+let shader = YourTargetMTLShaders.MTLFragmentShader.yourShaderFunctionNameHereAsEnumForTypeSafety
 let function = library.makeFunction(shader)
 ```
-or simply: 
+or simply:
 ```swift
 let function = library.makeFunction(.yourShaderFunctionNameHereAsEnumForTypeSafety)
 ```
@@ -52,6 +52,24 @@ You can assign custom groups to your shader functions by preceding them with spe
 ```metal
 // MTLShaderGroup: SpecialEffects
 fragment float4 sparkle_fragment() { ... }
+```
+
+### Shader Group Name Validation
+
+Shader group names must contain only **A-Z and a-z characters**. Invalid characters (including hyphens, underscores, numbers, spaces, and special symbols) will cause the build to fail with a clear error message.
+
+**Valid examples:**
+```metal
+// MTLShaderGroup: Lighting
+// MTLShaderGroup: Rendering
+// MTLShaderGroup: PostProcessing
+```
+
+**Invalid examples (will cause build errors):**
+```metal
+// MTLShaderGroup: Lighting-3D     // ❌ Contains hyphen
+// MTLShaderGroup: Post_Processing  // ❌ Contains underscore
+// MTLShaderGroup: 123Invalid       // ❌ Starts with number
 ```
 
 ## Open Source Contributions
