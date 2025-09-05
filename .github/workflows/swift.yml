@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-15  # Use macOS 15 runner, which includes Xcode 16
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       name: Checkout Repository
 
     - name: Select Xcode 16
