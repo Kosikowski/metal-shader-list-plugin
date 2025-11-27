@@ -118,8 +118,7 @@ public func parseShaderFunctions(from text: String) -> [(String, String)] {
     do {
         try validateShaderGroupNames(in: text)
     } catch {
-        // Print error and exit with failure
-        print("Error: \(error.localizedDescription)")
+        // Exit when shader group validation fails.
         exit(1)
     }
 
