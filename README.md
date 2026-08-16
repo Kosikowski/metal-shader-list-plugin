@@ -1,3 +1,4 @@
+[![CI](https://github.com/Kosikowski/metal-shader-list-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/Kosikowski/metal-shader-list-plugin/actions/workflows/ci.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FKosikowski%2Fmetal-shader-list-plugin%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/Kosikowski/metal-shader-list-plugin)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FKosikowski%2Fmetal-shader-list-plugin%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/Kosikowski/metal-shader-list-plugin)
 
@@ -7,76 +8,122 @@ Generate Swift enums from your Metal shader functions — automatically!
 
 ## What does this plugin do?
 
-ShaderListPlugin is a Swift Package Plugin that scans your target's `.metal` shader source files, parses all top-level Metal shader functions, and generates type-safe Swift enums for you to access those shaders in your code. No more hardcoding shader function names as strings, or copy–pasting boilerplate! All shader functions are grouped by type (vertex, fragment, kernel, compute) or by custom group comments in your Metal source. Each enum also gets a convenience extension for `MTLLibrary`.
+ShaderListPlugin is a Swift Package build tool plugin that scans your target's `.metal` source files, parses all top-level Metal shader functions, and generates type-safe Swift enums for accessing those shaders in your code. No more hardcoding shader function names as strings, or copy–pasting boilerplate!
 
-# How to Use
+Shader functions are grouped by their qualifier (`vertex`, `fragment`, `kernel`/`compute`) or by custom group comments in your Metal source. Each generated enum also gets a convenience `MTLLibrary` extension. Commented-out shader code is ignored entirely — both `//` line comments and `/* */` block comments.
 
-## With Swift Package Manager (SPM):
+## How to Use
 
-### Add ShaderListPlugin to your `Package.swift`:
+### With Swift Package Manager
+
+Add the package to your `Package.swift`:
 
 ```swift
 .package(url: "https://github.com/Kosikowski/metal-shader-list-plugin.git", from: "1.0.0")
 ```
 
-### Add the plugin to your project and target:
+Then attach the plugin to your target:
 
 ```swift
 .target(
     name: "YourTarget",
     dependencies: [ /* ... */ ],
     plugins: [
-        .plugin(name: "ShaderListPlugin")
+        .plugin(name: "ShaderListPlugin", package: "metal-shader-list-plugin")
     ]
 )
 ```
 
-Place your `.metal` files in your target's sources.
+Place your `.metal` files in the target's sources and build. The plugin generates `Generated/YourTargetShaderEnums.generated.swift` in the plugin work directory and compiles it into your target automatically.
 
-Build your package. The plugin generates enums and extensions in `Generated/YourTargetShaderEnums.generated.swift` under the plugin work directory. Use them directly in your code:
+### With Xcode
+
+The plugin also works in Xcode projects via the Xcode build tool plugin interface. After adding the package, attach the plugin to your target's *Build Phases → Run Build Tool Plug-ins*; it runs automatically on every build.
+
+## Using the generated code
+
+For a target named `YourTarget` containing:
+
+```metal
+vertex float4 basic_vertex(...) { ... }
+fragment float4 basic_fragment(...) { ... }
+```
+
+the plugin generates:
 
 ```swift
-let shader = YourTargetMTLShaders.MTLFragmentShader.yourShaderFunctionNameHereAsEnumForTypeSafety
-let function = library.makeFunction(shader)
+public enum YourTargetMTLShaders {
+    public enum MTLVertexShader: String, CaseIterable {
+        case basic_vertex = "basic_vertex"
+    }
+    public enum MTLFragmentShader: String, CaseIterable {
+        case basic_fragment = "basic_fragment"
+    }
+}
+
+extension MTLLibrary {
+    public func makeFunction(_ shader: YourTargetMTLShaders.MTLVertexShader) -> MTLFunction? { ... }
+    public func makeFunction(_ shader: YourTargetMTLShaders.MTLFragmentShader) -> MTLFunction? { ... }
+}
 ```
-or simply:
+
+so shader lookup is type-safe at the call site:
+
 ```swift
-let function = library.makeFunction(.yourShaderFunctionNameHereAsEnumForTypeSafety)
+let function = library.makeFunction(.basic_vertex)
 ```
 
-## With Xcode:
+Notes on the generated code:
 
- - The plugin also works in Xcode via the Xcode Project Plugin interface. After adding the package and plugin, it runs automatically whenever you build your project.
+- `kernel` and `compute` functions land in a single `MTLComputeShader` enum.
+- Target names that are not valid Swift identifiers (hyphens, spaces, leading digits) are sanitized, e.g. `my-target` → `my_targetMTLShaders`.
+- Shader function names that collide with Swift keywords (e.g. `defer`) are backtick-escaped as case names; their raw values keep the original spelling.
 
-## Customizing Groups
+## Custom groups
 
-You can assign custom groups to your shader functions by preceding them with special comments in your Metal source:
+Assign custom groups by preceding shader functions with a marker comment — with or without a space after `//`:
 
 ```metal
 // MTLShaderGroup: SpecialEffects
 fragment float4 sparkle_fragment() { ... }
 ```
 
-### Shader Group Name Validation
+A group comment applies to **all** shader functions that follow it, until the next group comment:
 
-Shader group names must contain only **A-Z and a-z characters**. Invalid characters (including hyphens, underscores, numbers, spaces, and special symbols) will cause the build to fail with a clear error message.
-
-**Valid examples:**
 ```metal
-// MTLShaderGroup: Lighting
-// MTLShaderGroup: Rendering
-// MTLShaderGroup: PostProcessing
+//MTLShaderGroup: Lighting
+vertex float4 vertex_ambient() { ... }   // → Lighting
+vertex float4 vertex_diffuse() { ... }   // → Lighting
+
+//MTLShaderGroup: PostProcessing
+fragment float4 blur() { ... }           // → PostProcessing
 ```
 
-**Invalid examples (will cause build errors):**
-```metal
-// MTLShaderGroup: Lighting-3D     // ❌ Contains hyphen
-// MTLShaderGroup: Post_Processing  // ❌ Contains underscore
-// MTLShaderGroup: 123Invalid       // ❌ Starts with number
+Markers inside commented-out code or string literals are ignored.
+
+### Group name rules
+
+Group names must:
+
+- contain only **A–Z and a–z** characters (no digits, underscores, hyphens, spaces, or non-ASCII letters), and
+- not be a **reserved Swift name** (`Self`, `Any`, `Type`, `Protocol`, `class`, `default`, …), since the group becomes a Swift enum name.
+
+Invalid names fail the build with a diagnostic pointing at the offending source line:
+
 ```
+Shaders.metal: Line 12: Invalid shader group name 'Lighting-3D': Contains invalid character '-'. Only A-Z and a-z characters are allowed
+```
+
+**Valid:** `Lighting`, `Rendering`, `PostProcessing`
+**Invalid:** `Lighting-3D`, `Post_Processing`, `123Invalid`, `Self`
+
+## Requirements
+
+- Swift 5.9+ toolchain (SPM build tool plugin API)
+- The generated code imports `Metal`, so it compiles for Apple platforms; the generator and parser themselves are tested on macOS, Linux, and Windows in CI
 
 ## Open Source Contributions
 
-Everyone is welcome to contribute to this project! Whether you find bugs, want to add features, or improve documentation, PRs and issues are encouraged. Please fork, propose changes, or start discussions.
+Everyone is welcome to contribute! Whether you find bugs, want to add features, or improve documentation, PRs and issues are encouraged. Please fork, propose changes, or start discussions.
 
 MIT License © 2025 Mateusz Kosikowski, PhD
