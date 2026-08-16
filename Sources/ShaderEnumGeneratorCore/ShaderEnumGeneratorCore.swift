@@ -267,8 +267,12 @@ private func isInsideStringLiteral(line: String, position: String.Index) -> Bool
     var previous: Character? = nil
     for character in line[..<position] {
         if previous != "\\" {
-            if character == "\"" { doubleQuotes += 1 }
-            if character == "'" { singleQuotes += 1 }
+            if character == "\"" {
+                doubleQuotes += 1
+            }
+            if character == "'" {
+                singleQuotes += 1
+            }
         }
         previous = character
     }
