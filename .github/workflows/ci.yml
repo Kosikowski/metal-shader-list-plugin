@@ -12,23 +12,14 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: ${{ matrix.runner }}
-    name: macOS (Swift ${{ matrix.swift-version }})
-    strategy:
-      matrix:
-        include:
-          - swift-version: 6.1.2
-            runner: macos-latest
+    runs-on: macos-latest
+    name: macOS (Xcode latest-stable)
     steps:
       - uses: actions/checkout@v6
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - name: Install Swift ${{ matrix.swift-version }}
-        uses: SwiftyLab/setup-swift@v1
-        with:
-          swift-version: ${{ matrix.swift-version }}
       - name: Show versions
         run: |
           xcodebuild -version
