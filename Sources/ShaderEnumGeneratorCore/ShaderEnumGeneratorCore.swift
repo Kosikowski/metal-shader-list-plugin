@@ -113,14 +113,9 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 /// Custom groups are assigned based on the nearest preceding comment of form `//MTLShaderGroup: GroupName` (if any),
 /// otherwise the function type (vertex|fragment|kernel|compute) is used as the group.
 /// Returns array of tuples: (group name string, function name string).
-public func parseShaderFunctions(from text: String) -> [(String, String)] {
-    // Validate shader group names first
-    do {
-        try validateShaderGroupNames(in: text)
-    } catch {
-        // Exit when shader group validation fails.
-        exit(1)
-    }
+/// - Throws: An error describing the first invalid shader group name, if any.
+public func parseShaderFunctions(from text: String) throws -> [(String, String)] {
+    try validateShaderGroupNames(in: text)
 
     let text = removingAllComments(from: text)
     var results: [(String, String)] = []

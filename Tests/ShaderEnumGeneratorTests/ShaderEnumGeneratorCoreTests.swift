@@ -76,7 +76,7 @@ struct ShaderEnumGeneratorCoreTests {
         fragment float4 fragment_main() { return float4(1); }
         kernel void kernel_func() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_passthrough" }))
         #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_main" }))
@@ -127,7 +127,7 @@ struct ShaderEnumGeneratorCoreTests {
     @Test("Returns empty output if no shaders are found")
     func noShaders() async throws {
         let metalSource = "// No shader functions"
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
             grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name)
@@ -147,7 +147,7 @@ struct ShaderEnumGeneratorCoreTests {
         kernel    void    kernel_spaced   ( ) { }
         compute\n   void\n   compute_mixed ( ) { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_newline" }))
         #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_tabbed" }))
         #expect(functions.contains(where: { $0.0 == "kernel" && $0.1 == "kernel_spaced" }))
@@ -161,7 +161,7 @@ struct ShaderEnumGeneratorCoreTests {
         let metalSource = """
           kernel   void    spaced_func    ( ) { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "kernel")
         #expect(functions[0].1 == "spaced_func")
@@ -175,7 +175,7 @@ struct ShaderEnumGeneratorCoreTests {
         //MTLShaderGroup: Another
         fragment float4 otherFunc() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
@@ -219,7 +219,7 @@ struct ShaderEnumGeneratorCoreTests {
         //MTLShaderGroup: Another
         fragment\tfloat4\tfragment_tabbed ( ) { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
@@ -263,7 +263,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
     @Test("Generates enum and MTLLibrary extension for a single shader group")
     func singleGroupGeneratesExtension() async throws {
         let metalSource = "vertex float4 vertexMain() { return float4(1); }"
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -299,7 +299,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
         fragment float4 fragmentFunc() { return float4(1); }
         kernel void kernelFunc() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -353,7 +353,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
         kernel /*kernel void kernelFunc() { }*/ void /*comment*/ kernelFunc() { } // yet another one
         //   vertex float4 vertexFuncFuncCoomentedOut() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -403,7 +403,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
         //MTLShaderGroup: CustomGroup
         kernel void customKernel() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -446,7 +446,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return VertexOut();
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_main")
@@ -464,7 +464,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return float4(1.0);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "fragment")
         #expect(functions[0].1 == "fragment_main")
@@ -484,7 +484,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             // Compute logic
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "kernel")
         #expect(functions[0].1 == "compute_main")
@@ -501,7 +501,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return vertices[vertexID];
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_template")
@@ -517,7 +517,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return VertexOut<MetalVertexFormat>();
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_complex")
@@ -531,7 +531,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
         vertex float4 vertex_diffuse() { return float4(1); }
         vertex float4 vertex_specular() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.allSatisfy { $0.0 == "Lighting" })
         #expect(functions.map(\.1).sorted() == ["vertex_ambient", "vertex_diffuse", "vertex_specular"])
@@ -556,7 +556,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.contains(where: { $0.1 == "vertex_visible" }))
         #expect(functions.contains(where: { $0.1 == "vertex_patch" }))
@@ -607,7 +607,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             return diffuseTexture.sample(diffuseSampler, in.texCoord);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "vertex_basic" }))
         #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "fragment_basic" }))
@@ -637,7 +637,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             // Sobel edge detection
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.allSatisfy { $0.0 == "ImageProcessing" })
         #expect(functions.contains(where: { $0.1 == "gaussian_blur_1d" }))
@@ -667,7 +667,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.allSatisfy { $0.0 == "Tessellation" })
         #expect(functions.contains(where: { $0.1 == "tessellation_vertex" }))
@@ -705,7 +705,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             // Ray intersection logic
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.allSatisfy { $0.0 == "RayTracing" })
         #expect(functions.contains(where: { $0.1 == "ray_generation_vertex" }))
@@ -726,7 +726,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
         kernel void // missing function name and parameters
         compute // incomplete declaration
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.isEmpty)
     }
 
@@ -740,7 +740,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "outer_function")
@@ -754,7 +754,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
 
         vertex float4 real_function() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "real_function")
@@ -770,7 +770,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_with_defaults")
@@ -787,7 +787,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_variadic")
@@ -803,7 +803,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_constexpr")
@@ -819,7 +819,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_reference")
@@ -835,7 +835,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_pointer")
@@ -870,7 +870,7 @@ struct ShaderEnumGeneratorPerformanceTests {
             """
         }
 
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == functionCount * 2)
 
         // Test enum generation with many functions
@@ -902,7 +902,7 @@ struct ShaderEnumGeneratorPerformanceTests {
             """
         }
 
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == groupCount * 2) // 2 functions per group
 
         var grouped: [ShaderGroup: Set<String>] = [:]
@@ -1078,18 +1078,13 @@ struct ShaderEnumGeneratorPerformanceTests {
         fragment float4 fragment_main() { return float4(1.0); }
         """
 
-        // Note: parseShaderFunctions calls exit(1) on validation errors, so we can't test it directly
-        // The validation is tested separately in validateInvalidShaderGroupNamesInContent()
-        // This test is kept for documentation but doesn't actually test throwing behavior
-
-        // Instead, test that validateShaderGroupNames throws for invalid content
         do {
-            try validateShaderGroupNames(in: invalidMetalSource)
-            #expect(Bool(false), Comment("validateShaderGroupNames should throw for invalid group names"))
+            _ = try parseShaderFunctions(from: invalidMetalSource)
+            #expect(Bool(false), Comment("parseShaderFunctions should throw for invalid group names"))
         } catch {
-            // Expected to throw
             let errorMessage = error.localizedDescription
             #expect(errorMessage.contains("Invalid shader group name"))
+            #expect(errorMessage.contains("Invalid-Name"))
         }
     }
 
@@ -1107,7 +1102,7 @@ struct ShaderEnumGeneratorPerformanceTests {
         """
 
         // Should not throw
-        let functions = parseShaderFunctions(from: validMetalSource)
+        let functions = try parseShaderFunctions(from: validMetalSource)
         #expect(functions.count == 3)
         #expect(functions.contains(where: { $0.0 == "Lighting" && $0.1 == "vertex_main" }))
         #expect(functions.contains(where: { $0.0 == "Rendering" && $0.1 == "fragment_main" }))
