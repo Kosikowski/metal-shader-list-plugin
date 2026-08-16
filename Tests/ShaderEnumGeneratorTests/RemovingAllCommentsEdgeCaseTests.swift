@@ -13,7 +13,7 @@ import Testing
 @Suite("removingAllComments edge cases")
 struct RemovingAllCommentsEdgeCaseTests {
     @Test("Removes all single-line and doc comments")
-    func simpleLineCommentsOnly() async throws {
+    func simpleLineCommentsOnly() {
         let input = """
         // comment
         /// doc comment
@@ -24,7 +24,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes all single-line and doc comments, preserves code")
-    func simpleLineComments() async throws {
+    func simpleLineComments() {
         let input = """
         // comment
         int a = 1; // end-of-line comment
@@ -39,7 +39,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes block comments, even multiline")
-    func blockCommentsEvenMultiline() async throws {
+    func blockCommentsEvenMultiline() {
         let input = """
         int a = /* inline */ 1;
         int b = /* inline */ 2;
@@ -54,7 +54,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Handles block comments between keywords and identifiers")
-    func blockCommentsBetweenKeywords() async throws {
+    func blockCommentsBetweenKeywords() {
         let input = """
         int/*block*/a = 1;
         float/**/b = 2;
@@ -67,7 +67,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes block comments inside single-line comments")
-    func blockInsideLineComment() async throws {
+    func blockInsideLineComment() {
         let input = """
         // real comment /* fake block */
         int a = 1; // normal
@@ -79,7 +79,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Does not remove comment-like content inside string literals")
-    func commentsInsideStringLiterals() async throws {
+    func commentsInsideStringLiterals() {
         let input = """
         const char* s = "// not a comment";
         const char* t = "/* not a block */";
@@ -94,7 +94,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Handles block comments spanning entire file and blank lines")
-    func fullFileBlockCommentAndBlankLines() async throws {
+    func fullFileBlockCommentAndBlankLines() {
         let input = """
         /*
         Block comment at start
@@ -114,7 +114,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Handles adjacent and nested-like comment syntax")
-    func adjacentAndNestedLikeComments() async throws {
+    func adjacentAndNestedLikeComments() {
         let input = """
         int a = 1; //// many slashes
         int b = 2; /* /* not nested but adjacent */ 3;
@@ -131,7 +131,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Preserves non-comment code and whitespace exactly, removes only comments")
-    func nonCommentContentUnchanged() async throws {
+    func nonCommentContentUnchanged() {
         let input = """
         int add(int a, int b) { return a + b; }
         float mul(float x, float y) { return x * y; }
@@ -141,7 +141,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes comments from typical Metal vertex shader")
-    func metalVertexShaderComments() async throws {
+    func metalVertexShaderComments() {
         let input = """
         // Vertex shader
         vertex float4 vertex_main(
@@ -171,7 +171,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes block and line comments from fragment shader")
-    func metalFragmentShaderComments() async throws {
+    func metalFragmentShaderComments() {
         let input = """
         fragment float4 fragment_main(
             float4 color [[stage_in]] /* color in [[stage_in]] */, // color param
@@ -193,7 +193,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes comments in Metal compute shader with macros and includes")
-    func metalComputeShaderComments() async throws {
+    func metalComputeShaderComments() {
         let input = """
         #include <metal_stdlib>
         using namespace metal;
@@ -223,7 +223,7 @@ struct RemovingAllCommentsEdgeCaseTests {
     }
 
     @Test("Removes doc and block comments from real-world shader structure")
-    func metalShaderStructsComments() async throws {
+    func metalShaderStructsComments() {
         let input = """
         /// Vertex input for standard pipeline
         struct VertexIn {
@@ -254,7 +254,7 @@ struct RemovingAllCommentsEdgeCaseTests {
 @Suite("removingAllComments advanced edge cases")
 struct RemovingAllCommentsAdvancedTests {
     @Test("Handles escaped quotes in string literals")
-    func escapedQuotesInStrings() async throws {
+    func escapedQuotesInStrings() {
         let input = """
         const char* s = "This is a \\"quoted\\" string";
         const char* t = 'This is a \\'quoted\\' string';
@@ -269,7 +269,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles multiline string literals")
-    func multilineStringLiterals() async throws {
+    func multilineStringLiterals() {
         let input = """
         const char* s = "This is a
         multiline string
@@ -286,7 +286,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles string literals with comment-like sequences")
-    func stringLiteralsWithCommentSequences() async throws {
+    func stringLiteralsWithCommentSequences() {
         let input = """
         const char* s = "// This looks like a comment but isn't";
         const char* t = "/* This also looks like a block comment */";
@@ -303,7 +303,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles block comments with nested-like syntax")
-    func blockCommentsWithNestedLikeSyntax() async throws {
+    func blockCommentsWithNestedLikeSyntax() {
         let input = """
         int a = 1; /* /* not nested, just adjacent */ */
         int b = 2; /* block /* another block */ */
@@ -319,7 +319,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles line comments with block comment syntax")
-    func lineCommentsWithBlockSyntax() async throws {
+    func lineCommentsWithBlockSyntax() {
         let input = """
         // /* This is a line comment with block syntax */
         int a = 1; // /* Another line comment */
@@ -334,7 +334,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles block comments with line comment syntax")
-    func blockCommentsWithLineSyntax() async throws {
+    func blockCommentsWithLineSyntax() {
         let input = """
         /* // This is a block comment with line syntax */
         int a = 1; /* // Another block comment */
@@ -349,7 +349,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles comments with special characters")
-    func commentsWithSpecialCharacters() async throws {
+    func commentsWithSpecialCharacters() {
         let input = """
         // Comment with special chars: !@#$%^&*()_+-=[]{}|;':",./<>?
         int a = 1; // Unicode: 🚀 🎮 🎯
@@ -364,7 +364,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles comments with newlines and tabs")
-    func commentsWithNewlinesAndTabs() async throws {
+    func commentsWithNewlinesAndTabs() {
         let input = """
         // Line comment with
         // multiple lines
@@ -382,7 +382,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles empty comments")
-    func emptyComments() async throws {
+    func emptyComments() {
         let input = """
         //
         int a = 1; //
@@ -400,7 +400,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles comments at end of file")
-    func commentsAtEndOfFile() async throws {
+    func commentsAtEndOfFile() {
         let input = """
         int a = 1;
         int b = 2;
@@ -415,7 +415,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles comments at start of file")
-    func commentsAtStartOfFile() async throws {
+    func commentsAtStartOfFile() {
         let input = """
         // Start of file comment
         /* Another start comment */
@@ -430,7 +430,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles comments with only whitespace")
-    func commentsWithOnlyWhitespace() async throws {
+    func commentsWithOnlyWhitespace() {
         let input = """
         //
         int a = 1; //
@@ -447,8 +447,8 @@ struct RemovingAllCommentsAdvancedTests {
         expectCodeLinesEqual(removingAllComments(from: input), expected)
     }
 
-    @Test("Handles shader group comments with valid characters")
-    func shaderGroupCommentsWithValidCharacters() async throws {
+    @Test("Preserves shader group comments verbatim regardless of name content")
+    func shaderGroupCommentsPreservedVerbatim() {
         let input = """
         //MTLShaderGroup: ValidGroupName
         vertex float4 vertex_func() { return float4(1); }
@@ -471,7 +471,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles shader group comments with whitespace variations")
-    func shaderGroupCommentsWithWhitespace() async throws {
+    func shaderGroupCommentsWithWhitespace() {
         let input = """
         //MTLShaderGroup:   GroupWithSpaces
         vertex float4 vertex_func() { return float4(1); }
@@ -494,7 +494,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles complex Metal shader with all comment types")
-    func complexMetalShaderWithAllCommentTypes() async throws {
+    func complexMetalShaderWithAllCommentTypes() {
         let input = """
         #include <metal_stdlib>
         using namespace metal;
@@ -552,7 +552,7 @@ struct RemovingAllCommentsAdvancedTests {
     }
 
     @Test("Handles Metal shader with preprocessor directives and comments")
-    func metalShaderWithPreprocessorAndComments() async throws {
+    func metalShaderWithPreprocessorAndComments() {
         let input = """
         #include <metal_stdlib>
         using namespace metal;

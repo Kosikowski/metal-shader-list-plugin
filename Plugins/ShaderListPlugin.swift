@@ -63,15 +63,13 @@ struct ShaderEnumsPlugin: BuildToolPlugin {
 
         Diagnostics.remark("[\(contextToolType)] Generate command arguments: \(inputPaths.map(\.string) + ["-o", outputFile.string])")
 
-        let command = Command.buildCommand(
+        return Command.buildCommand(
             displayName: "Generating Shader Enums for \(targetName)",
             executable: executable,
             arguments: inputPaths.map(\.string) + ["-o", outputFile.string, "-m", targetName],
             inputFiles: inputPaths,
             outputFiles: [outputFile]
         )
-
-        return command
     }
 
     // MARK: Functions
@@ -86,21 +84,17 @@ struct ShaderEnumsPlugin: BuildToolPlugin {
         let outputFile = outputDir.appending("\(target.name)ShaderEnums.generated.swift")
         let inputPaths = target.sourceFiles(withSuffix: ".metal").map(\.path)
 
-        do {
-            if
-                let generateCommand = try Self.makeGenerateCommand(
-                    outputDir: outputDir,
-                    outputFile: outputFile,
-                    inputPaths: inputPaths,
-                    targetName: target.name,
-                    executable: context.tool(named: "ShaderEnumGenerator").path,
-                    contextToolType: "swiftpm"
-                )
-            {
-                return [generateCommand]
-            }
-        } catch {
-            throw error
+        if
+            let generateCommand = try Self.makeGenerateCommand(
+                outputDir: outputDir,
+                outputFile: outputFile,
+                inputPaths: inputPaths,
+                targetName: target.name,
+                executable: context.tool(named: "ShaderEnumGenerator").path,
+                contextToolType: "swiftpm"
+            )
+        {
+            return [generateCommand]
         }
 
         return []

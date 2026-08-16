@@ -70,13 +70,13 @@ func expectCodeLinesEqual(
 @Suite("ShaderEnumGeneratorCore - Metal parsing and code generation")
 struct ShaderEnumGeneratorCoreTests {
     @Test("Parses vertex and fragment shaders and generates expected enums")
-    func parseAndGenerate() async throws {
+    func parseAndGenerate() throws {
         let metalSource = """
         vertex float4 vertex_passthrough(float4 in [[stage_in]]) { return in; }
         fragment float4 fragment_main() { return float4(1); }
         kernel void kernel_func() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_passthrough" }))
         #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_main" }))
@@ -125,9 +125,9 @@ struct ShaderEnumGeneratorCoreTests {
     }
 
     @Test("Returns empty output if no shaders are found")
-    func noShaders() async throws {
+    func noShaders() throws {
         let metalSource = "// No shader functions"
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
             grouped[ShaderGroup.from(rawValue: enumName), default: []].insert(name)
@@ -140,14 +140,14 @@ struct ShaderEnumGeneratorCoreTests {
     }
 
     @Test("Parses shaders with extra whitespace and newlines")
-    func parseIrregularWhitespace() async throws {
+    func parseIrregularWhitespace() throws {
         let metalSource = """
         vertex\nfloat4\nvertex_newline(float4 in [[stage_in]]) { return in; }
         fragment\tfloat4\tfragment_tabbed ( ) { return float4(1); }
         kernel    void    kernel_spaced   ( ) { }
         compute\n   void\n   compute_mixed ( ) { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "vertex_newline" }))
         #expect(functions.contains(where: { $0.0 == "fragment" && $0.1 == "fragment_tabbed" }))
         #expect(functions.contains(where: { $0.0 == "kernel" && $0.1 == "kernel_spaced" }))
@@ -157,25 +157,25 @@ struct ShaderEnumGeneratorCoreTests {
     }
 
     @Test("Ignores leading/trailing whitespace in function declaration")
-    func parseLeadingTrailingWhitespace() async throws {
+    func parseLeadingTrailingWhitespace() throws {
         let metalSource = """
           kernel   void    spaced_func    ( ) { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "kernel")
         #expect(functions[0].1 == "spaced_func")
     }
 
     @Test("Parses custom group comment and generates correct enum")
-    func customGroupComment() async throws {
+    func customGroupComment() throws {
         let metalSource = """
         //MTLShaderGroup: FancyShaderGroup
         kernel void customFunc() { }
         //MTLShaderGroup: Another
         fragment float4 otherFunc() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
@@ -212,14 +212,14 @@ struct ShaderEnumGeneratorCoreTests {
     }
 
     @Test("Parses custom group comment and generates correct enum")
-    func customGroupCommentWithWhitespaces() async throws {
+    func customGroupCommentWithWhitespaces() throws {
         let metalSource = """
         //MTLShaderGroup: FancyShaderGroup
         vertex\n    float4\n    vertex_newline(float4 in [[stage_in]]) { return in; }
         //MTLShaderGroup: Another
         fragment\tfloat4\tfragment_tabbed ( ) { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (enumName, name) in functions {
@@ -261,9 +261,9 @@ struct ShaderEnumGeneratorCoreTests {
 @Suite("ShaderEnumGeneratorCore - Extension Generation")
 struct ShaderEnumGeneratorCoreExtensionTests {
     @Test("Generates enum and MTLLibrary extension for a single shader group")
-    func singleGroupGeneratesExtension() async throws {
+    func singleGroupGeneratesExtension() throws {
         let metalSource = "vertex float4 vertexMain() { return float4(1); }"
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -293,13 +293,13 @@ struct ShaderEnumGeneratorCoreExtensionTests {
     }
 
     @Test("Generates all enums and MTLLibrary extensions for multiple shader groups")
-    func multipleGroupsGenerateExtensions() async throws {
+    func multipleGroupsGenerateExtensions() throws {
         let metalSource = """
         vertex float4 vertexFunc() { return float4(1); }
         fragment float4 fragmentFunc() { return float4(1); }
         kernel void kernelFunc() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -344,7 +344,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
     }
 
     @Test("Generates all enums and MTLLibrary extensions for multiple shader groups, and ignores commented code.")
-    func multipleGroupsGenerateExtensionsWithCommentedOutCode() async throws {
+    func multipleGroupsGenerateExtensionsWithCommentedOutCode() throws {
         let metalSource = """
         vertex float4 vertexFunc() { return float4(1); }
         /*kernel void kernelFuncCoomentedOut() { }*/
@@ -353,7 +353,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
         kernel /*kernel void kernelFunc() { }*/ void /*comment*/ kernelFunc() { } // yet another one
         //   vertex float4 vertexFuncFuncCoomentedOut() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -398,12 +398,12 @@ struct ShaderEnumGeneratorCoreExtensionTests {
     }
 
     @Test("Generates enum and MTLLibrary extension for custom shader group comment")
-    func customGroupCommentGeneratesExtension() async throws {
+    func customGroupCommentGeneratesExtension() throws {
         let metalSource = """
         //MTLShaderGroup: CustomGroup
         kernel void customKernel() { }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         var grouped: [ShaderGroup: Set<String>] = [:]
         for (groupName, funcName) in functions {
             grouped[ShaderGroup.from(rawValue: groupName), default: []].insert(funcName)
@@ -435,7 +435,7 @@ struct ShaderEnumGeneratorCoreExtensionTests {
 @Suite("ShaderEnumGeneratorCore - Complex Shader Function Signatures")
 struct ShaderEnumGeneratorComplexSignatureTests {
     @Test("Parses complex vertex shader with multiple parameters and attributes")
-    func complexVertexShaderSignature() async throws {
+    func complexVertexShaderSignature() throws {
         let metalSource = """
         vertex VertexOut vertex_main(
             const device VertexIn* vertices [[buffer(0)]],
@@ -446,14 +446,14 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return VertexOut();
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_main")
     }
 
     @Test("Parses fragment shader with texture and sampler parameters")
-    func fragmentShaderWithTextures() async throws {
+    func fragmentShaderWithTextures() throws {
         let metalSource = """
         fragment float4 fragment_main(
             VertexOut in [[stage_in]],
@@ -464,14 +464,14 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return float4(1.0);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "fragment")
         #expect(functions[0].1 == "fragment_main")
     }
 
     @Test("Parses compute shader with threadgroup parameters")
-    func computeShaderWithThreadgroups() async throws {
+    func computeShaderWithThreadgroups() throws {
         let metalSource = """
         kernel void compute_main(
             device float* output [[buffer(0)]],
@@ -484,14 +484,14 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             // Compute logic
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "kernel")
         #expect(functions[0].1 == "compute_main")
     }
 
     @Test("Parses shader with template parameters")
-    func shaderWithTemplateParameters() async throws {
+    func shaderWithTemplateParameters() throws {
         let metalSource = """
         template<typename T>
         vertex T vertex_template(
@@ -501,14 +501,14 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return vertices[vertexID];
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_template")
     }
 
     @Test("Parses shader with complex return type")
-    func shaderWithComplexReturnType() async throws {
+    func shaderWithComplexReturnType() throws {
         let metalSource = """
         vertex VertexOut<MetalVertexFormat> vertex_complex(
             const device VertexIn* vertices [[buffer(0)]],
@@ -517,28 +517,28 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return VertexOut<MetalVertexFormat>();
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_complex")
     }
 
     @Test("Parses multiple functions in same group")
-    func multipleFunctionsInSameGroup() async throws {
+    func multipleFunctionsInSameGroup() throws {
         let metalSource = """
         //MTLShaderGroup: Lighting
         vertex float4 vertex_ambient() { return float4(1); }
         vertex float4 vertex_diffuse() { return float4(1); }
         vertex float4 vertex_specular() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.allSatisfy { $0.0 == "Lighting" })
         #expect(functions.map(\.1).sorted() == ["vertex_ambient", "vertex_diffuse", "vertex_specular"])
     }
 
     @Test("Handles shader functions with qualifiers and attributes")
-    func shaderWithQualifiersAndAttributes() async throws {
+    func shaderWithQualifiersAndAttributes() throws {
         let metalSource = """
         [[visible]]
         vertex float4 vertex_visible(
@@ -556,7 +556,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.contains(where: { $0.1 == "vertex_visible" }))
         #expect(functions.contains(where: { $0.1 == "vertex_patch" }))
@@ -568,7 +568,7 @@ struct ShaderEnumGeneratorComplexSignatureTests {
 @Suite("ShaderEnumGeneratorCore - Real-world Metal Shader Examples")
 struct ShaderEnumGeneratorRealWorldTests {
     @Test("Parses complete Metal rendering pipeline shaders")
-    func completeRenderingPipeline() async throws {
+    func completeRenderingPipeline() throws {
         let metalSource = """
         #include <metal_stdlib>
         using namespace metal;
@@ -607,14 +607,14 @@ struct ShaderEnumGeneratorRealWorldTests {
             return diffuseTexture.sample(diffuseSampler, in.texCoord);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "vertex_basic" }))
         #expect(functions.contains(where: { $0.0 == "BasicRendering" && $0.1 == "fragment_basic" }))
     }
 
     @Test("Parses compute shader for image processing")
-    func imageProcessingComputeShader() async throws {
+    func imageProcessingComputeShader() throws {
         let metalSource = """
         #include <metal_stdlib>
         using namespace metal;
@@ -637,7 +637,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             // Sobel edge detection
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.allSatisfy { $0.0 == "ImageProcessing" })
         #expect(functions.contains(where: { $0.1 == "gaussian_blur_1d" }))
@@ -645,7 +645,7 @@ struct ShaderEnumGeneratorRealWorldTests {
     }
 
     @Test("Parses tessellation shaders")
-    func tessellationShaders() async throws {
+    func tessellationShaders() throws {
         let metalSource = """
         #include <metal_stdlib>
         using namespace metal;
@@ -667,7 +667,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 2)
         #expect(functions.allSatisfy { $0.0 == "Tessellation" })
         #expect(functions.contains(where: { $0.1 == "tessellation_vertex" }))
@@ -675,7 +675,7 @@ struct ShaderEnumGeneratorRealWorldTests {
     }
 
     @Test("Parses ray tracing shaders")
-    func rayTracingShaders() async throws {
+    func rayTracingShaders() throws {
         let metalSource = """
         #include <metal_stdlib>
         using namespace metal;
@@ -705,7 +705,7 @@ struct ShaderEnumGeneratorRealWorldTests {
             // Ray intersection logic
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 3)
         #expect(functions.allSatisfy { $0.0 == "RayTracing" })
         #expect(functions.contains(where: { $0.1 == "ray_generation_vertex" }))
@@ -719,19 +719,19 @@ struct ShaderEnumGeneratorRealWorldTests {
 @Suite("ShaderEnumGeneratorCore - Edge Cases and Error Handling")
 struct ShaderEnumGeneratorEdgeCaseTests {
     @Test("Handles malformed function declarations gracefully")
-    func malformedFunctionDeclarations() async throws {
+    func malformedFunctionDeclarations() throws {
         let metalSource = """
         vertex // missing return type and function name
         fragment float4 // missing function name
         kernel void // missing function name and parameters
         compute // incomplete declaration
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.isEmpty)
     }
 
     @Test("Handles nested function declarations")
-    func nestedFunctionDeclarations() async throws {
+    func nestedFunctionDeclarations() throws {
         let metalSource = """
         vertex float4 outer_function() {
             void inner_function() {
@@ -740,28 +740,28 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "outer_function")
     }
 
     @Test("Handles function-like macros")
-    func functionLikeMacros() async throws {
+    func functionLikeMacros() throws {
         let metalSource = """
         #define VERTEX_FUNC(name) vertex float4 name() { return float4(1); }
         VERTEX_FUNC(macro_generated)
 
         vertex float4 real_function() { return float4(1); }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "real_function")
     }
 
     @Test("Handles shader functions with default parameters")
-    func shaderWithDefaultParameters() async throws {
+    func shaderWithDefaultParameters() throws {
         let metalSource = """
         vertex float4 vertex_with_defaults(
             const device VertexIn* vertices [[buffer(0)]],
@@ -770,14 +770,14 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_with_defaults")
     }
 
     @Test("Handles shader functions with variadic parameters")
-    func shaderWithVariadicParameters() async throws {
+    func shaderWithVariadicParameters() throws {
         let metalSource = """
         vertex float4 vertex_variadic(
             const device VertexIn* vertices [[buffer(0)]],
@@ -787,14 +787,14 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_variadic")
     }
 
     @Test("Handles shader functions with constexpr parameters")
-    func shaderWithConstexprParameters() async throws {
+    func shaderWithConstexprParameters() throws {
         let metalSource = """
         vertex float4 vertex_constexpr(
             const device VertexIn* vertices [[buffer(0)]],
@@ -803,14 +803,14 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_constexpr")
     }
 
     @Test("Handles shader functions with reference parameters")
-    func shaderWithReferenceParameters() async throws {
+    func shaderWithReferenceParameters() throws {
         let metalSource = """
         vertex float4 vertex_reference(
             const device VertexIn& vertex [[buffer(0)]],
@@ -819,14 +819,14 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_reference")
     }
 
     @Test("Handles shader functions with pointer parameters")
-    func shaderWithPointerParameters() async throws {
+    func shaderWithPointerParameters() throws {
         let metalSource = """
         vertex float4 vertex_pointer(
             const device VertexIn* vertices [[buffer(0)]],
@@ -835,7 +835,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
             return float4(1);
         }
         """
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == 1)
         #expect(functions[0].0 == "vertex")
         #expect(functions[0].1 == "vertex_pointer")
@@ -847,7 +847,7 @@ struct ShaderEnumGeneratorEdgeCaseTests {
 @Suite("ShaderEnumGeneratorCore - Performance and Large Files")
 struct ShaderEnumGeneratorPerformanceTests {
     @Test("Handles large shader file with many functions")
-    func largeShaderFile() async throws {
+    func largeShaderFile() throws {
         var metalSource = ""
         let functionCount = 100
 
@@ -870,7 +870,7 @@ struct ShaderEnumGeneratorPerformanceTests {
             """
         }
 
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == functionCount * 2)
 
         // Test enum generation with many functions
@@ -885,7 +885,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Handles shader file with many custom groups")
-    func manyCustomGroups() async throws {
+    func manyCustomGroups() throws {
         var metalSource = ""
         let groupCount = 50
 
@@ -902,7 +902,7 @@ struct ShaderEnumGeneratorPerformanceTests {
             """
         }
 
-        let functions = parseShaderFunctions(from: metalSource)
+        let functions = try parseShaderFunctions(from: metalSource)
         #expect(functions.count == groupCount * 2) // 2 functions per group
 
         var grouped: [ShaderGroup: Set<String>] = [:]
@@ -917,7 +917,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     // MARK: - Shader Group Name Validation Tests
 
     @Test("Validates shader group names with only A-Z and a-z characters")
-    func validateValidShaderGroupNames() async throws {
+    func validateValidShaderGroupNames() throws {
         let validNames = [
             "Lighting",
             "Rendering",
@@ -948,7 +948,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Rejects shader group names with invalid characters")
-    func validateInvalidShaderGroupNames() async throws {
+    func validateInvalidShaderGroupNames() throws {
         let invalidTestCases = [
             ("Lighting-3D", "hyphen"),
             ("Post_Processing", "underscore"),
@@ -1004,7 +1004,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Rejects empty shader group names")
-    func validateEmptyShaderGroupNames() async throws {
+    func validateEmptyShaderGroupNames() throws {
         let emptyNames = [
             "",
             "   ",
@@ -1028,7 +1028,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Validates shader group names in actual Metal shader content")
-    func validateShaderGroupNamesInContent() async throws {
+    func validateShaderGroupNamesInContent() throws {
         let validMetalSource = """
         //MTLShaderGroup: Lighting
         vertex float4 vertex_main() { return float4(0.0); }
@@ -1045,7 +1045,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Rejects invalid shader group names in actual Metal shader content")
-    func validateInvalidShaderGroupNamesInContent() async throws {
+    func validateInvalidShaderGroupNamesInContent() throws {
         let invalidMetalSource = """
         //MTLShaderGroup: Lighting
         vertex float4 vertex_main() { return float4(0.0); }
@@ -1069,7 +1069,7 @@ struct ShaderEnumGeneratorPerformanceTests {
     }
 
     @Test("Integration test: parseShaderFunctions throws on invalid group names")
-    func parseShaderFunctionsThrowsOnInvalidGroupNames() async throws {
+    func parseShaderFunctionsThrowsOnInvalidGroupNames() throws {
         let invalidMetalSource = """
         //MTLShaderGroup: ValidName
         vertex float4 vertex_main() { return float4(0.0); }
@@ -1078,23 +1078,18 @@ struct ShaderEnumGeneratorPerformanceTests {
         fragment float4 fragment_main() { return float4(1.0); }
         """
 
-        // Note: parseShaderFunctions calls exit(1) on validation errors, so we can't test it directly
-        // The validation is tested separately in validateInvalidShaderGroupNamesInContent()
-        // This test is kept for documentation but doesn't actually test throwing behavior
-
-        // Instead, test that validateShaderGroupNames throws for invalid content
         do {
-            try validateShaderGroupNames(in: invalidMetalSource)
-            #expect(Bool(false), Comment("validateShaderGroupNames should throw for invalid group names"))
+            _ = try parseShaderFunctions(from: invalidMetalSource)
+            #expect(Bool(false), Comment("parseShaderFunctions should throw for invalid group names"))
         } catch {
-            // Expected to throw
             let errorMessage = error.localizedDescription
             #expect(errorMessage.contains("Invalid shader group name"))
+            #expect(errorMessage.contains("Invalid-Name"))
         }
     }
 
     @Test("Integration test: parseShaderFunctions works with valid group names")
-    func parseShaderFunctionsWorksWithValidGroupNames() async throws {
+    func parseShaderFunctionsWorksWithValidGroupNames() throws {
         let validMetalSource = """
         //MTLShaderGroup: Lighting
         vertex float4 vertex_main() { return float4(0.0); }
@@ -1107,10 +1102,240 @@ struct ShaderEnumGeneratorPerformanceTests {
         """
 
         // Should not throw
-        let functions = parseShaderFunctions(from: validMetalSource)
+        let functions = try parseShaderFunctions(from: validMetalSource)
         #expect(functions.count == 3)
         #expect(functions.contains(where: { $0.0 == "Lighting" && $0.1 == "vertex_main" }))
         #expect(functions.contains(where: { $0.0 == "Rendering" && $0.1 == "fragment_main" }))
         #expect(functions.contains(where: { $0.0 == "ValidName" && $0.1 == "compute_main" }))
+    }
+}
+
+// MARK: - ShaderGroupValidationPipelineTests
+
+@Suite("ShaderEnumGeneratorCore - Group name validation pipeline")
+struct ShaderGroupValidationPipelineTests {
+    @Test("Validates the documented '// MTLShaderGroup:' spelling with a space")
+    func spacedMarkerIsValidated() throws {
+        let metalSource = """
+        // MTLShaderGroup: Lighting-3D
+        fragment float4 fragment_main() { return float4(1.0); }
+        """
+        #expect(throws: (any Error).self) {
+            _ = try parseShaderFunctions(from: metalSource)
+        }
+    }
+
+    @Test("Groups functions declared under the spaced marker spelling")
+    func spacedMarkerAssignsGroup() throws {
+        let metalSource = """
+        // MTLShaderGroup: SpecialEffects
+        fragment float4 sparkle_fragment() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "SpecialEffects")
+        #expect(functions[0].1 == "sparkle_fragment")
+    }
+
+    @Test("Ignores markers inside block-commented code")
+    func blockCommentedMarkerIsIgnored() throws {
+        let metalSource = """
+        /*
+        //MTLShaderGroup: Old-Group
+        vertex float4 old_vertex() { return float4(1.0); }
+        */
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_main")
+    }
+
+    @Test("Rejects group names that would previously be truncated by the parser")
+    func hyphenatedNameIsRejectedNotTruncated() throws {
+        let metalSource = """
+        //MTLShaderGroup: Lighting-3D
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            #expect(error.localizedDescription.contains("Lighting-3D"))
+            #expect(error.localizedDescription.contains("Line 1:"))
+        }
+    }
+
+    @Test("Rejects non-ASCII letters even though they are Unicode letters")
+    func nonASCIILettersAreRejected() throws {
+        #expect(throws: (any Error).self) {
+            try validateShaderGroupName("Café")
+        }
+    }
+
+    @Test("Rejects underscores and digits, matching the documented rule")
+    func underscoresAndDigitsAreRejected() throws {
+        #expect(throws: (any Error).self) { try validateShaderGroupName("Group_With_Underscores") }
+        #expect(throws: (any Error).self) { try validateShaderGroupName("Mixed123Group") }
+    }
+}
+
+// MARK: - GeneratedCodeSanitizationTests
+
+@Suite("ShaderEnumGeneratorCore - Generated code sanitization")
+struct GeneratedCodeSanitizationTests {
+    @Test("Merges kernel and compute functions into a single MTLComputeShader enum")
+    func kernelAndComputeMergeIntoOneEnum() {
+        let functionsByType: [ShaderGroup: Set<String>] = [
+            .kernel: ["kernel_func"],
+            .compute: ["compute_func"],
+        ]
+        let code = generateShaderEnums(functionsByType: functionsByType, moduleName: "TestTarget")
+        expectCodeLinesEqual(code, """
+        // Generated by ShaderEnumGenerator
+
+        import Metal
+
+        public enum TestTargetMTLShaders {
+            public enum MTLComputeShader: String, CaseIterable {
+                case compute_func = "compute_func"
+                case kernel_func = "kernel_func"
+            }
+        }
+
+        extension MTLLibrary {
+            public func makeFunction(_ shader: TestTargetMTLShaders.MTLComputeShader) -> MTLFunction? {
+                makeFunction(name: shader.rawValue)
+            }
+        }
+
+        """)
+    }
+
+    @Test("Merges a custom group that collides with a built-in enum name")
+    func customGroupCollidingWithBuiltInMerges() {
+        let functionsByType: [ShaderGroup: Set<String>] = [
+            .vertex: ["vertex_main"],
+            .custom("MTLVertexShader"): ["special_vertex"],
+        ]
+        let code = generateShaderEnums(functionsByType: functionsByType, moduleName: "TestTarget")
+        let enumDeclarations = code.components(separatedBy: "public enum MTLVertexShader: String, CaseIterable {")
+        #expect(enumDeclarations.count == 2)
+        #expect(code.contains("case special_vertex = \"special_vertex\""))
+        #expect(code.contains("case vertex_main = \"vertex_main\""))
+    }
+
+    @Test("Backtick-escapes function names that are Swift keywords")
+    func keywordFunctionNamesAreEscaped() {
+        let code = generateShaderEnums(functionsByType: [.vertex: ["defer", "vertex_main"]], moduleName: "TestTarget")
+        #expect(code.contains("case `defer` = \"defer\""))
+        #expect(code.contains("case vertex_main = \"vertex_main\""))
+    }
+
+    @Test("Sanitizes module names that are not valid Swift identifiers")
+    func moduleNameIsSanitized() {
+        let code = generateShaderEnums(functionsByType: [.vertex: ["vertex_main"]], moduleName: "my-shader lib")
+        #expect(code.contains("public enum my_shader_libMTLShaders {"))
+    }
+
+    @Test("Prefixes module names starting with a digit")
+    func leadingDigitModuleName() {
+        let code = generateShaderEnums(functionsByType: [.vertex: ["vertex_main"]], moduleName: "3d")
+        #expect(code.contains("public enum _3dMTLShaders {"))
+    }
+}
+
+// MARK: - LineMappingTests
+
+@Suite("ShaderEnumGeneratorCore - Line mapping")
+struct LineMappingTests {
+    @Test("Assigns groups correctly when earlier lines contain non-ASCII characters")
+    func nonASCIIContentDoesNotSkewGroupAssignment() throws {
+        let padding = String(repeating: "🚀", count: 60)
+        let metalSource = """
+        constant char msg[] = "\(padding)";
+        vertex float4 ungrouped_vertex() { return float4(1.0); }
+        //MTLShaderGroup: Effects
+        fragment float4 grouped_fragment() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 2)
+        #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "ungrouped_vertex" }))
+        #expect(functions.contains(where: { $0.0 == "Effects" && $0.1 == "grouped_fragment" }))
+    }
+}
+
+// MARK: - ReviewRegressionTests
+
+@Suite("ShaderEnumGeneratorCore - Review regressions")
+struct ReviewRegressionTests {
+    @Test("Ignores markers inside string literals, as on main")
+    func markerInsideStringLiteralIsIgnored() throws {
+        let metalSource = """
+        constant char msg[] = "//MTLShaderGroup: Bad-Name";
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_main")
+    }
+
+    @Test("Error line number names the active marker, not a block-commented copy")
+    func errorPointsAtActiveMarkerLine() throws {
+        let metalSource = """
+        /*
+        //MTLShaderGroup: Bad-Name
+        */
+        vertex float4 vertex_main() { return float4(1.0); }
+
+        //MTLShaderGroup: Bad-Name
+        fragment float4 fragment_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            #expect(error.localizedDescription.contains("Line 6:"))
+        }
+    }
+
+    @Test("Validation error states its message once")
+    func errorMessageHasSinglePrefix() throws {
+        let metalSource = """
+        //MTLShaderGroup: Bad-Name
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            let message = error.localizedDescription
+            let occurrences = message.components(separatedBy: "Invalid shader group name").count - 1
+            #expect(occurrences == 1)
+        }
+    }
+
+    @Test("Rejects group names that are reserved Swift names")
+    func reservedGroupNamesAreRejected() throws {
+        for name in ["Self", "Any", "Type", "Protocol", "class", "default"] {
+            #expect(throws: (any Error).self, Comment("'\(name)' should be rejected")) {
+                try validateShaderGroupName(name)
+            }
+        }
+        #expect(throws: (any Error).self) {
+            _ = try parseShaderFunctions(from: """
+            //MTLShaderGroup: Self
+            vertex float4 vertex_main() { return float4(1.0); }
+            """)
+        }
+    }
+
+    @Test("Backtick-escapes Type and Protocol as case names")
+    func typeAndProtocolCaseNamesAreEscaped() {
+        let code = generateShaderEnums(functionsByType: [.vertex: ["Type", "Protocol"]], moduleName: "TestTarget")
+        #expect(code.contains("case `Type` = \"Type\""))
+        #expect(code.contains("case `Protocol` = \"Protocol\""))
     }
 }
