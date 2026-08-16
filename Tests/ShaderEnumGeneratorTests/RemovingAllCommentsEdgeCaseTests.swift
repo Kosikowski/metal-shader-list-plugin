@@ -447,8 +447,8 @@ struct RemovingAllCommentsAdvancedTests {
         expectCodeLinesEqual(removingAllComments(from: input), expected)
     }
 
-    @Test("Handles shader group comments with valid characters")
-    func shaderGroupCommentsWithValidCharacters() async throws {
+    @Test("Preserves shader group comments verbatim regardless of name content")
+    func shaderGroupCommentsPreservedVerbatim() async throws {
         let input = """
         //MTLShaderGroup: ValidGroupName
         vertex float4 vertex_func() { return float4(1); }

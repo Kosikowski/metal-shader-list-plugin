@@ -9,6 +9,7 @@
 import Foundation
 
 let shaderGroupCommentPrefix = "MTLShaderGroup:"
+let shaderGroupCommentMarker = "//" + shaderGroupCommentPrefix
 
 // MARK: - Shader Group Validation
 
@@ -18,47 +19,53 @@ let shaderGroupCommentPrefix = "MTLShaderGroup:"
 public func validateShaderGroupName(_ groupName: String) throws {
     let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    // Check for empty names
     guard !trimmedName.isEmpty else {
         throw NSError(domain: "ShaderEnumGenerator", code: 1, userInfo: [
             NSLocalizedDescriptionKey: "Shader group name cannot be empty",
         ])
     }
 
-    // Check that name only contains A-Z and a-z characters
-    let validCharacters = CharacterSet.letters
-    let invalidCharacters = trimmedName.unicodeScalars.filter { !validCharacters.contains($0) }
-
-    if !invalidCharacters.isEmpty {
-        let invalidChar = String(invalidCharacters.first!)
+    if let invalidCharacter = trimmedName.first(where: { !($0.isASCII && $0.isLetter) }) {
         throw NSError(domain: "ShaderEnumGenerator", code: 2, userInfo: [
-            NSLocalizedDescriptionKey: "Invalid shader group name '\(trimmedName)': Contains invalid character '\(invalidChar)'. Only A-Z and a-z characters are allowed",
+            NSLocalizedDescriptionKey: "Invalid shader group name '\(trimmedName)': Contains invalid character '\(invalidCharacter)'. Only A-Z and a-z characters are allowed",
         ])
     }
 }
 
-/// Extracts and validates shader group names from Metal shader source code
+/// Extracts and validates shader group names from Metal shader source code.
+/// Comments are stripped first, so markers inside commented-out code are ignored,
+/// and any spelling `removingAllComments` normalizes (e.g. `// MTLShaderGroup:`) is validated.
 /// - Parameter text: The Metal shader source code
 /// - Throws: Error if validation fails
 public func validateShaderGroupNames(in text: String) throws {
-    let lines = text.components(separatedBy: .newlines)
+    for line in removingAllComments(from: text).components(separatedBy: .newlines) {
+        guard let markerRange = line.range(of: shaderGroupCommentMarker) else { continue }
+        let groupName = line[markerRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
 
-    for (lineNumber, line) in lines.enumerated() {
-        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Look for MTLShaderGroup comments
-        if trimmedLine.hasPrefix("//MTLShaderGroup:") {
-            let groupName = trimmedLine.replacingOccurrences(of: "//MTLShaderGroup:", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-            do {
-                try validateShaderGroupName(groupName)
-            } catch {
-                throw NSError(domain: "ShaderEnumGenerator", code: 3, userInfo: [
-                    NSLocalizedDescriptionKey: "Invalid shader group name at line \(lineNumber + 1): \(error.localizedDescription)",
-                ])
+        do {
+            try validateShaderGroupName(groupName)
+        } catch {
+            var message = error.localizedDescription
+            if let lineNumber = lineNumber(ofGroupComment: groupName, in: text) {
+                message = "Invalid shader group name at line \(lineNumber): \(message)"
             }
+            throw NSError(domain: "ShaderEnumGenerator", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: message,
+            ])
         }
     }
+}
+
+/// Best-effort lookup of the 1-based line carrying the given group name in the original
+/// source, so errors can point at the file as written rather than the comment-stripped text.
+private func lineNumber(ofGroupComment groupName: String, in source: String) -> Int? {
+    for (index, line) in source.components(separatedBy: .newlines).enumerated() {
+        guard let markerRange = line.range(of: shaderGroupCommentPrefix) else { continue }
+        if line[markerRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines) == groupName {
+            return index + 1
+        }
+    }
+    return nil
 }
 
 // MARK: - ShaderGroup
@@ -120,7 +127,7 @@ public func parseShaderFunctions(from text: String) throws -> [(String, String)]
     let text = removingAllComments(from: text)
     var results: [(String, String)] = []
     let functionPattern = #"(?m)^\s*(vertex|fragment|kernel|compute)\s+[^()]+\s+(\w+)\s*\("#
-    let commentPattern = "//" + shaderGroupCommentPrefix + #"\s*([A-Za-z_][A-Za-z0-9_]*)"#
+    let commentPattern = shaderGroupCommentMarker + #"\s*([A-Za-z]+)"#
 
     guard
         let functionRegex = try? NSRegularExpression(pattern: functionPattern, options: [.dotMatchesLineSeparators]),
@@ -243,7 +250,6 @@ func removingAllComments(from text: String) -> String {
     var stringDelimiter: Character? = nil
     var inBlockComment = false
     var prevChar: Character? = nil
-    let shaderGroupPrefix = "//" + shaderGroupCommentPrefix
     var lastNewlineIndex: String.Index? = text.startIndex
     var blockCommentIndent = ""
 
@@ -315,7 +321,7 @@ func removingAllComments(from text: String) -> String {
             let commentContent = text[commentStartIndex ..< commentEndIndex].trimmingCharacters(in: .whitespaces)
             if commentContent.hasPrefix(shaderGroupCommentPrefix) {
                 // Keep the shader group comment as is (trimmed)
-                output.append(shaderGroupPrefix)
+                output.append(shaderGroupCommentMarker)
                 output.append(contentsOf: commentContent.dropFirst(shaderGroupCommentPrefix.count))
                 if commentEndIndex < end, text[commentEndIndex] == "\n" {
                     output.append("\n")

@@ -1109,3 +1109,74 @@ struct ShaderEnumGeneratorPerformanceTests {
         #expect(functions.contains(where: { $0.0 == "ValidName" && $0.1 == "compute_main" }))
     }
 }
+
+// MARK: - ShaderGroupValidationPipelineTests
+
+@Suite("ShaderEnumGeneratorCore - Group name validation pipeline")
+struct ShaderGroupValidationPipelineTests {
+    @Test("Validates the documented '// MTLShaderGroup:' spelling with a space")
+    func spacedMarkerIsValidated() async throws {
+        let metalSource = """
+        // MTLShaderGroup: Lighting-3D
+        fragment float4 fragment_main() { return float4(1.0); }
+        """
+        #expect(throws: (any Error).self) {
+            _ = try parseShaderFunctions(from: metalSource)
+        }
+    }
+
+    @Test("Groups functions declared under the spaced marker spelling")
+    func spacedMarkerAssignsGroup() async throws {
+        let metalSource = """
+        // MTLShaderGroup: SpecialEffects
+        fragment float4 sparkle_fragment() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "SpecialEffects")
+        #expect(functions[0].1 == "sparkle_fragment")
+    }
+
+    @Test("Ignores markers inside block-commented code")
+    func blockCommentedMarkerIsIgnored() async throws {
+        let metalSource = """
+        /*
+        //MTLShaderGroup: Old-Group
+        vertex float4 old_vertex() { return float4(1.0); }
+        */
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_main")
+    }
+
+    @Test("Rejects group names that would previously be truncated by the parser")
+    func hyphenatedNameIsRejectedNotTruncated() async throws {
+        let metalSource = """
+        //MTLShaderGroup: Lighting-3D
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            #expect(error.localizedDescription.contains("Lighting-3D"))
+            #expect(error.localizedDescription.contains("at line 1"))
+        }
+    }
+
+    @Test("Rejects non-ASCII letters even though they are Unicode letters")
+    func nonASCIILettersAreRejected() async throws {
+        #expect(throws: (any Error).self) {
+            try validateShaderGroupName("Café")
+        }
+    }
+
+    @Test("Rejects underscores and digits, matching the documented rule")
+    func underscoresAndDigitsAreRejected() async throws {
+        #expect(throws: (any Error).self) { try validateShaderGroupName("Group_With_Underscores") }
+        #expect(throws: (any Error).self) { try validateShaderGroupName("Mixed123Group") }
+    }
+}
