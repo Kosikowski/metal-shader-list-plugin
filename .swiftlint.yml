@@ -19,35 +19,17 @@ opt_in_rules:
   - overridden_super_call
   - redundant_nil_coalescing
   - redundant_type_annotation
-  - unused_import
   - vertical_whitespace
+
+analyzer_rules:
+  - unused_import
 
 included:
   - Sources
+  - Plugins
   - Tests
 
 excluded:
   - .build
   - .git
   - .swiftpm
-  - Plugins
-
-line_length:
-  warning: 120
-  error: 150
-
-function_body_length:
-  warning: 50
-  error: 100
-
-type_body_length:
-  warning: 300
-  error: 500
-
-file_length:
-  warning: 500
-  error: 1000
-
-cyclomatic_complexity:
-  warning: 10
-  error: 20
