@@ -21,9 +21,6 @@ opt_in_rules:
   - redundant_type_annotation
   - vertical_whitespace
 
-analyzer_rules:
-  - unused_import
-
 included:
   - Sources
   - Plugins

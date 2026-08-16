@@ -30,42 +30,33 @@ public func validateShaderGroupName(_ groupName: String) throws {
             NSLocalizedDescriptionKey: "Invalid shader group name '\(trimmedName)': Contains invalid character '\(invalidCharacter)'. Only A-Z and a-z characters are allowed",
         ])
     }
+
+    if swiftKeywords.contains(trimmedName) {
+        throw NSError(domain: "ShaderEnumGenerator", code: 4, userInfo: [
+            NSLocalizedDescriptionKey: "Invalid shader group name '\(trimmedName)': It is a reserved Swift name and cannot be used as an enum name",
+        ])
+    }
 }
 
 /// Extracts and validates shader group names from Metal shader source code.
-/// Comments are stripped first, so markers inside commented-out code are ignored,
-/// and any spelling `removingAllComments` normalizes (e.g. `// MTLShaderGroup:`) is validated.
+/// Only markers in real line comments count: markers inside commented-out code or
+/// string literals are ignored, matching what the parser sees.
 /// - Parameter text: The Metal shader source code
 /// - Throws: Error if validation fails
 public func validateShaderGroupNames(in text: String) throws {
-    for line in removingAllComments(from: text).components(separatedBy: .newlines) {
-        guard let markerRange = line.range(of: shaderGroupCommentMarker) else { continue }
-        let groupName = line[markerRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+    try validateGroupComments(processSource(text).groupComments)
+}
 
+func validateGroupComments(_ comments: [(line: Int, name: String)]) throws {
+    for comment in comments {
         do {
-            try validateShaderGroupName(groupName)
+            try validateShaderGroupName(comment.name)
         } catch {
-            var message = error.localizedDescription
-            if let lineNumber = lineNumber(ofGroupComment: groupName, in: text) {
-                message = "Invalid shader group name at line \(lineNumber): \(message)"
-            }
             throw NSError(domain: "ShaderEnumGenerator", code: 3, userInfo: [
-                NSLocalizedDescriptionKey: message,
+                NSLocalizedDescriptionKey: "Line \(comment.line): \(error.localizedDescription)",
             ])
         }
     }
-}
-
-/// Best-effort lookup of the 1-based line carrying the given group name in the original
-/// source, so errors can point at the file as written rather than the comment-stripped text.
-private func lineNumber(ofGroupComment groupName: String, in source: String) -> Int? {
-    for (index, line) in source.components(separatedBy: .newlines).enumerated() {
-        guard let markerRange = line.range(of: shaderGroupCommentPrefix) else { continue }
-        if line[markerRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines) == groupName {
-            return index + 1
-        }
-    }
-    return nil
 }
 
 // MARK: - ShaderGroup
@@ -122,9 +113,8 @@ public enum ShaderGroup: Hashable, Equatable, CustomStringConvertible {
 /// Returns array of tuples: (group name string, function name string).
 /// - Throws: An error describing the first invalid shader group name, if any.
 public func parseShaderFunctions(from text: String) throws -> [(String, String)] {
-    try validateShaderGroupNames(in: text)
-
-    let text = removingAllComments(from: text)
+    let (text, groupComments) = processSource(text)
+    try validateGroupComments(groupComments)
     var results: [(String, String)] = []
     let functionPattern = #"(?m)^\s*(vertex|fragment|kernel|compute)\s+[^()]+\s+(\w+)\s*\("#
     let commentPattern = shaderGroupCommentMarker + #"\s*([A-Za-z]+)"#
@@ -144,7 +134,9 @@ public func parseShaderFunctions(from text: String) throws -> [(String, String)]
     for (idx, line) in lines.enumerated() {
         if
             let match = commentRegex.firstMatch(in: line, options: [], range: NSRange(line.startIndex ..< line.endIndex, in: line)),
-            let groupRange = Range(match.range(at: 1), in: line)
+            let groupRange = Range(match.range(at: 1), in: line),
+            let markerRange = Range(match.range, in: line),
+            !isInsideStringLiteral(line: line, position: markerRange.lowerBound)
         {
             let groupStr = String(line[groupRange])
             commentPositions.append((line: idx, group: groupStr))
@@ -229,7 +221,7 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
     swiftCode += "public enum \(parentEnumName) {\n"
     for enumName in enumNames {
         let functionNames = functionsByEnumName[enumName]!.sorted()
-        swiftCode += "    public enum \(enumName): String, CaseIterable {\n"
+        swiftCode += "    public enum \(escapedIdentifier(enumName)): String, CaseIterable {\n"
         for name in functionNames {
             swiftCode += "        case \(escapedIdentifier(name)) = \"\(name)\"\n"
         }
@@ -239,7 +231,7 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
     // MTLLibrary extensions for every nested group
     for (index, enumName) in enumNames.enumerated() {
         swiftCode += "extension MTLLibrary {\n"
-        swiftCode += "    public func makeFunction(_ shader: \(parentEnumName).\(enumName)) -> MTLFunction? {\n"
+        swiftCode += "    public func makeFunction(_ shader: \(parentEnumName).\(escapedIdentifier(enumName))) -> MTLFunction? {\n"
         swiftCode += "        makeFunction(name: shader.rawValue)\n"
         swiftCode += "    }\n"
         swiftCode += "}\n"
@@ -250,18 +242,37 @@ public func generateShaderEnums(functionsByType: [ShaderGroup: Set<String>], mod
     return swiftCode
 }
 
-/// Swift keywords that need backticks when used as an enum case name in generated code.
-private let swiftKeywords: Set<String> = [
-    "Any", "Self", "as", "associatedtype", "break", "case", "catch", "class", "continue",
-    "default", "defer", "deinit", "do", "else", "enum", "extension", "fallthrough", "false",
-    "fileprivate", "for", "func", "guard", "if", "import", "in", "init", "inout", "internal",
-    "is", "let", "nil", "operator", "precedencegroup", "private", "protocol", "public",
-    "repeat", "rethrows", "return", "self", "static", "struct", "subscript", "super",
-    "switch", "throw", "throws", "true", "try", "typealias", "var", "where", "while",
+/// Swift keywords and reserved member names that cannot appear as bare identifiers in
+/// generated code: case names get backticks, and shader group names are rejected outright
+/// because `Type`/`Protocol`/`Self`-style names break member access even when escaped.
+let swiftKeywords: Set<String> = [
+    "Any", "Protocol", "Self", "Type", "as", "associatedtype", "break", "case", "catch",
+    "class", "continue", "default", "defer", "deinit", "do", "else", "enum", "extension",
+    "fallthrough", "false", "fileprivate", "for", "func", "guard", "if", "import", "in",
+    "init", "inout", "internal", "is", "let", "nil", "operator", "precedencegroup",
+    "private", "protocol", "public", "repeat", "rethrows", "return", "self", "static",
+    "struct", "subscript", "super", "switch", "throw", "throws", "true", "try",
+    "typealias", "var", "where", "while",
 ]
 
 private func escapedIdentifier(_ name: String) -> String {
     swiftKeywords.contains(name) ? "`\(name)`" : name
+}
+
+/// Heuristic: whether `position` on a single cleaned line falls inside a string or
+/// character literal, judged by unescaped quote parity before it.
+private func isInsideStringLiteral(line: String, position: String.Index) -> Bool {
+    var doubleQuotes = 0
+    var singleQuotes = 0
+    var previous: Character? = nil
+    for character in line[..<position] {
+        if previous != "\\" {
+            if character == "\"" { doubleQuotes += 1 }
+            if character == "'" { singleQuotes += 1 }
+        }
+        previous = character
+    }
+    return doubleQuotes % 2 == 1 || singleQuotes % 2 == 1
 }
 
 /// Maps an arbitrary target/module name onto a valid Swift identifier:
@@ -284,7 +295,15 @@ func sanitizedIdentifier(_ name: String) -> String {
 /// Preserves string literals and skips comments even if inside strings.
 /// Returns the code with all comments removed, retaining newlines to preserve structure and not leaving trailing spaces or extra blank lines.
 func removingAllComments(from text: String) -> String {
+    processSource(text).cleanedText
+}
+
+/// Walks the source once, producing the comment-stripped text and every shader group
+/// comment it preserved, tagged with its 1-based line number in the original source.
+func processSource(_ text: String) -> (cleanedText: String, groupComments: [(line: Int, name: String)]) {
     var output = ""
+    var groupComments: [(line: Int, name: String)] = []
+    var currentLine = 0
     var i = text.startIndex
     let end = text.endIndex
     var inString = false
@@ -315,6 +334,9 @@ func removingAllComments(from text: String) -> String {
                 continue
             }
             // Do not append newlines inside block comments
+            if c == "\n" {
+                currentLine += 1
+            }
             i = text.index(after: i)
             continue
         }
@@ -326,6 +348,7 @@ func removingAllComments(from text: String) -> String {
             }
             prevChar = c
             if c == "\n" {
+                currentLine += 1
                 lastNewlineIndex = text.index(after: i)
             }
             i = text.index(after: i)
@@ -361,11 +384,15 @@ func removingAllComments(from text: String) -> String {
             }
             let commentContent = text[commentStartIndex ..< commentEndIndex].trimmingCharacters(in: .whitespaces)
             if commentContent.hasPrefix(shaderGroupCommentPrefix) {
+                let groupName = String(commentContent.dropFirst(shaderGroupCommentPrefix.count))
+                    .trimmingCharacters(in: .whitespaces)
+                groupComments.append((line: currentLine + 1, name: groupName))
                 // Keep the shader group comment as is (trimmed)
                 output.append(shaderGroupCommentMarker)
                 output.append(contentsOf: commentContent.dropFirst(shaderGroupCommentPrefix.count))
                 if commentEndIndex < end, text[commentEndIndex] == "\n" {
                     output.append("\n")
+                    currentLine += 1
                     lastNewlineIndex = text.index(after: commentEndIndex)
                     i = text.index(after: commentEndIndex)
                 } else {
@@ -395,6 +422,7 @@ func removingAllComments(from text: String) -> String {
                 i = commentEndIndex
                 if i < end, text[i] == "\n" {
                     output.append("\n")
+                    currentLine += 1
                     lastNewlineIndex = text.index(after: i)
                     i = text.index(after: i)
                 }
@@ -406,6 +434,7 @@ func removingAllComments(from text: String) -> String {
         output.append(c)
         prevChar = c
         if c == "\n" {
+            currentLine += 1
             lastNewlineIndex = text.index(after: i)
         }
         i = text.index(after: i)
@@ -416,5 +445,5 @@ func removingAllComments(from text: String) -> String {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? nil : trimmed
     }
-    return cleaned.joined(separator: "\n")
+    return (cleanedText: cleaned.joined(separator: "\n"), groupComments: groupComments)
 }

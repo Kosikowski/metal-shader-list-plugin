@@ -1163,7 +1163,7 @@ struct ShaderGroupValidationPipelineTests {
             #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
         } catch {
             #expect(error.localizedDescription.contains("Lighting-3D"))
-            #expect(error.localizedDescription.contains("at line 1"))
+            #expect(error.localizedDescription.contains("Line 1:"))
         }
     }
 
@@ -1263,5 +1263,79 @@ struct LineMappingTests {
         #expect(functions.count == 2)
         #expect(functions.contains(where: { $0.0 == "vertex" && $0.1 == "ungrouped_vertex" }))
         #expect(functions.contains(where: { $0.0 == "Effects" && $0.1 == "grouped_fragment" }))
+    }
+}
+
+// MARK: - ReviewRegressionTests
+
+@Suite("ShaderEnumGeneratorCore - Review regressions")
+struct ReviewRegressionTests {
+    @Test("Ignores markers inside string literals, as on main")
+    func markerInsideStringLiteralIsIgnored() throws {
+        let metalSource = """
+        constant char msg[] = "//MTLShaderGroup: Bad-Name";
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        let functions = try parseShaderFunctions(from: metalSource)
+        #expect(functions.count == 1)
+        #expect(functions[0].0 == "vertex")
+        #expect(functions[0].1 == "vertex_main")
+    }
+
+    @Test("Error line number names the active marker, not a block-commented copy")
+    func errorPointsAtActiveMarkerLine() throws {
+        let metalSource = """
+        /*
+        //MTLShaderGroup: Bad-Name
+        */
+        vertex float4 vertex_main() { return float4(1.0); }
+
+        //MTLShaderGroup: Bad-Name
+        fragment float4 fragment_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            #expect(error.localizedDescription.contains("Line 6:"))
+        }
+    }
+
+    @Test("Validation error states its message once")
+    func errorMessageHasSinglePrefix() throws {
+        let metalSource = """
+        //MTLShaderGroup: Bad-Name
+        vertex float4 vertex_main() { return float4(1.0); }
+        """
+        do {
+            _ = try parseShaderFunctions(from: metalSource)
+            #expect(Bool(false), Comment("Expected parseShaderFunctions to throw"))
+        } catch {
+            let message = error.localizedDescription
+            let occurrences = message.components(separatedBy: "Invalid shader group name").count - 1
+            #expect(occurrences == 1)
+        }
+    }
+
+    @Test("Rejects group names that are reserved Swift names")
+    func reservedGroupNamesAreRejected() throws {
+        for name in ["Self", "Any", "Type", "Protocol", "class", "default"] {
+            #expect(throws: (any Error).self, Comment("'\(name)' should be rejected")) {
+                try validateShaderGroupName(name)
+            }
+        }
+        #expect(throws: (any Error).self) {
+            _ = try parseShaderFunctions(from: """
+            //MTLShaderGroup: Self
+            vertex float4 vertex_main() { return float4(1.0); }
+            """)
+        }
+    }
+
+    @Test("Backtick-escapes Type and Protocol as case names")
+    func typeAndProtocolCaseNamesAreEscaped() {
+        let code = generateShaderEnums(functionsByType: [.vertex: ["Type", "Protocol"]], moduleName: "TestTarget")
+        #expect(code.contains("case `Type` = \"Type\""))
+        #expect(code.contains("case `Protocol` = \"Protocol\""))
     }
 }
