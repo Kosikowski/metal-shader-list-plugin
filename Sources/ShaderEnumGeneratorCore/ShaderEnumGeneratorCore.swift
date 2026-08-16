@@ -159,7 +159,7 @@ public func parseShaderFunctions(from text: String) throws -> [(String, String)]
         offset += line.utf16.count + 1
     }
 
-    // Index of the line containing the given match location (last line start <= location)
+    /// Index of the line containing the given match location (last line start <= location)
     func lineIndex(ofUTF16Offset location: Int) -> Int {
         var low = 0
         var high = lineStartOffsets.count - 1
